@@ -1,0 +1,26 @@
+# FIXTURE configuration: synthetic tones + fake transcripts for technical tests only.
+# Never report numbers from this config as portfolio results.
+run_name: fixture_pilot
+mode: pilot
+context_mode: none
+dataset:
+  adapter: fixture
+  name: fixture
+  language: en
+  split: test
+  path: tests/fixtures/kaldi_test   # created by tests/make_fixture.py
+selection:
+  pilot_target_hours: 0.01
+  pilot_max_items: 5
+  seed: 42
+  min_duration_s: 0.5
+  max_duration_s: 30
+model:
+  name: Qwen/Qwen3-ASR-0.6B-hf
+  revision: 7f1569a48a89f3e3f4dc3a5c9d28bddd903bc76c
+  language: English
+  max_new_tokens: 256
+  batch_size: 1
+output_dir: results/fixture
+manifest_dir: results/fixture/manifests
+audio_cache_dir: data/audio_cache

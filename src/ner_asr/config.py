@@ -1,0 +1,119 @@
+"""Configuration loading.
+
+A run is described by one YAML file (see config/). Paths inside the config are
+resolved relative to the repository root so no machine-specific absolute paths
+are needed.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@dataclass
+class DatasetConfig:
+    adapter: str  # kaldi_dir | hf_voxpopuli | hf_mls_en | common_voice_local | fixture
+    name: str
+    language: str = "en"
+    split: str = "test"
+    revision: str | None = None
+    path: str | None = None  # local directory for kaldi_dir / common_voice_local
+    options: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SelectionConfig:
+    # "pilot" uses pilot_max_items / pilot_target_hours; "full" uses target_hours.
+    target_hours: float | None = None  # PENDING: the ~40 h requirement is not yet clarified.
+    pilot_target_hours: float = 0.02
+    pilot_max_items: int = 5
+    seed: int = 42
+    min_duration_s: float = 0.5
+    max_duration_s: float = 30.0
+    # Upper bound on items scanned when streaming (protects against huge downloads).
+    max_scan_items: int | None = 400
+    allow_insufficient: bool = False
+
+
+@dataclass
+class ModelConfig:
+    name: str = "Qwen/Qwen3-ASR-0.6B-hf"
+    revision: str | None = None
+    dtype: str = "auto"  # auto | float32 | bfloat16 | float16
+    device: str = "auto"  # auto | cpu | cuda
+    language: str | None = "English"  # forced language; None = auto-detect
+    max_new_tokens: int = 256
+    batch_size: int = 1
+
+
+@dataclass
+class RunConfig:
+    run_name: str
+    mode: str  # pilot | full
+    dataset: DatasetConfig
+    selection: SelectionConfig
+    model: ModelConfig
+    output_dir: str = "results"
+    audio_cache_dir: str = "data/audio_cache"
+    manifest_dir: str = "data/manifests"
+    context_mode: str = "none"  # baseline is always "none"; see ner_asr.context
+
+    @property
+    def output_path(self) -> Path:
+        return resolve(self.output_dir)
+
+    @property
+    def manifest_path(self) -> Path:
+        return resolve(self.manifest_dir) / f"{self.run_name}_manifest.csv"
+
+    @property
+    def predictions_path(self) -> Path:
+        return self.output_path / "predictions" / f"{self.run_name}_predictions.jsonl"
+
+    @property
+    def metrics_dir(self) -> Path:
+        return self.output_path / "metrics"
+
+    def target_seconds(self) -> float | None:
+        hours = self.selection.pilot_target_hours if self.mode == "pilot" else self.selection.target_hours
+        return None if hours is None else hours * 3600.0
+
+    def max_items(self) -> int | None:
+        return self.selection.pilot_max_items if self.mode == "pilot" else None
+
+
+def resolve(path: str | Path) -> Path:
+    p = Path(path)
+    return p if p.is_absolute() else (REPO_ROOT / p)
+
+
+def load_config(path: str | Path, **overrides: Any) -> RunConfig:
+    with open(resolve(path), encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+    for key, value in overrides.items():
+        raw[key] = value
+    cfg = RunConfig(
+        run_name=raw["run_name"],
+        mode=raw.get("mode", "pilot"),
+        dataset=DatasetConfig(**raw["dataset"]),
+        selection=SelectionConfig(**raw.get("selection", {})),
+        model=ModelConfig(**raw.get("model", {})),
+        output_dir=raw.get("output_dir", "results"),
+        audio_cache_dir=raw.get("audio_cache_dir", "data/audio_cache"),
+        manifest_dir=raw.get("manifest_dir", "data/manifests"),
+        context_mode=raw.get("context_mode", "none"),
+    )
+    if cfg.mode not in {"pilot", "full"}:
+        raise ValueError(f"mode must be 'pilot' or 'full', got {cfg.mode!r}")
+    if cfg.mode == "full" and cfg.selection.target_hours is None:
+        raise ValueError(
+            "Full mode needs selection.target_hours. The duration requirement (~40 h?) "
+            "is still unconfirmed - set it explicitly once clarified."
+        )
+    return cfg

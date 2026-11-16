@@ -1,0 +1,31 @@
+# Candidate 3 - Mozilla Common Voice English (NOT YET APPROVED, UNTESTED).
+# Requires a manual download from Mozilla Data Collective (account + terms). The full
+# English scripted-speech release is ~88 GB: do not download it for a pilot. Prefer the
+# lecturer's cluster copy (cv19, Kaldi format) via config/cluster_kaldi.yaml.
+run_name: common_voice_en_test_baseline
+mode: pilot
+context_mode: none
+dataset:
+  adapter: common_voice_local
+  name: common_voice_en
+  language: en
+  split: test
+  revision: null            # fill in the exact release, e.g. "Scripted Speech 25.0"
+  path: data/raw/common_voice_en   # extracted release folder (git-ignored)
+selection:
+  target_hours: null        # PENDING
+  pilot_target_hours: 0.02
+  pilot_max_items: 5
+  seed: 42
+  min_duration_s: 0.5
+  max_duration_s: 30
+  allow_insufficient: false
+model:
+  name: Qwen/Qwen3-ASR-1.7B-hf
+  revision: bcd2b5b7f32b480ab5790554cfa8347f246a14f3
+  dtype: auto
+  device: auto
+  language: English
+  max_new_tokens: 256
+  batch_size: 1
+output_dir: results
