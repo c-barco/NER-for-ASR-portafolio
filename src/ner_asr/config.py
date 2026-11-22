@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass
 class DatasetConfig:
-    adapter: str  # kaldi_dir | hf_voxpopuli | hf_mls_en | common_voice_local | fixture
+    adapter: str  # kaldi_dir | hf_eurospeech | hf_voxpopuli | hf_mls_en | common_voice_local | fixture
     name: str
     language: str = "en"
     split: str = "test"
@@ -30,7 +30,7 @@ class DatasetConfig:
 @dataclass
 class SelectionConfig:
     # "pilot" uses pilot_max_items / pilot_target_hours; "full" uses target_hours.
-    target_hours: float | None = None  # PENDING: the ~40 h requirement is not yet clarified.
+    target_hours: float | None = None  # Required only for a full baseline evaluation.
     pilot_target_hours: float = 0.02
     pilot_max_items: int = 5
     seed: int = 42
@@ -43,11 +43,13 @@ class SelectionConfig:
 
 @dataclass
 class ModelConfig:
-    name: str = "Qwen/Qwen3-ASR-0.6B-hf"
+    name: str = "ibm-granite/granite-4.0-1b-speech"
     revision: str | None = None
     dtype: str = "auto"  # auto | float32 | bfloat16 | float16
     device: str = "auto"  # auto | cpu | cuda
-    language: str | None = "English"  # forced language; None = auto-detect
+    # Retained as run metadata. Granite Speech's documented ASR prompt does not
+    # take a forced-language argument.
+    language: str | None = None
     max_new_tokens: int = 256
     batch_size: int = 1
 
@@ -113,7 +115,6 @@ def load_config(path: str | Path, **overrides: Any) -> RunConfig:
         raise ValueError(f"mode must be 'pilot' or 'full', got {cfg.mode!r}")
     if cfg.mode == "full" and cfg.selection.target_hours is None:
         raise ValueError(
-            "Full mode needs selection.target_hours. The duration requirement (~40 h?) "
-            "is still unconfirmed - set it explicitly once clarified."
+            "Full mode needs selection.target_hours; set an explicit evaluation-duration target."
         )
     return cfg

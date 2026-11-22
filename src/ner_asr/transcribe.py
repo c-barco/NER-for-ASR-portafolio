@@ -1,15 +1,11 @@
-"""Qwen3-ASR wrapper (Transformers-native "-hf" checkpoints).
+"""Granite 4 Speech transcription wrapper.
 
-Follows the lecturer's `transcribe()` in mmai_06/02_qwen3_asr_playground.ipynb:
-`AutoProcessor` + `AutoModelForMultimodalLM`, `processor.apply_transcription_request`,
-greedy `generate(max_new_tokens=256)`, `decode(..., return_format="transcription_only")`.
-Requires transformers>=5.13.
-
-Note: "Qwen/Qwen3-ASR-1.7B" / "-0.6B" (without "-hf") are the original checkpoints for
-the separate `qwen-asr` package and are NOT loadable this way. Use the "-hf" ids.
-
-The baseline never passes a prompt: `prompt` stays None. Context conditioning
-(portfolio Step 5) is out of scope for the Step 1-2 submission.
+This follows the official ``ibm-granite/granite-4.0-1b-speech`` model-card
+example: ``AutoProcessor`` + ``AutoModelForSpeechSeq2Seq``, the Granite chat
+template, and greedy generation. The documented no-context ASR request is used
+unchanged for the baseline. A non-empty ``prompt`` is interpreted only as a
+comma-separated keyword list and is appended using Granite's documented
+``Keywords: ...`` mechanism; Steps 3--8 do not call it.
 """
 
 from __future__ import annotations
@@ -17,6 +13,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from .audio import load_audio
 from .config import ModelConfig
 
 
@@ -29,10 +26,20 @@ class TranscriptionResult:
     runtime_s: float
 
 
-class QwenASRTranscriber:
+class Granite4ASRTranscriber:
+    """Granite 4 Speech ASR with the project-wide transcriber interface.
+
+    The model card documents one audio item per chat request. ``transcribe_batch``
+    therefore preserves the public batch interface while processing paths in a
+    deterministic sequence. This is deliberately conservative until real-model
+    validation establishes a safe batched Granite request format.
+    """
+
+    BASELINE_USER_PROMPT = "<|audio|>can you transcribe the speech into a written format?"
+
     def __init__(self, cfg: ModelConfig):
         import torch
-        from transformers import AutoModelForMultimodalLM, AutoProcessor
+        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
 
         self.cfg = cfg
         self._torch = torch
@@ -47,38 +54,57 @@ class QwenASRTranscriber:
         }[cfg.dtype]
         self.device = device
         self.processor = AutoProcessor.from_pretrained(cfg.name, revision=cfg.revision)
-        self.model = AutoModelForMultimodalLM.from_pretrained(
-            cfg.name, revision=cfg.revision, dtype=dtype, device_map=device
+        self.tokenizer = self.processor.tokenizer
+        self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
+            cfg.name, revision=cfg.revision, torch_dtype=dtype, device_map=device
         ).eval()
         eos = self.model.generation_config.eos_token_id
         self.eos_ids = set(eos if isinstance(eos, list) else [eos]) if eos is not None else set()
 
-    def transcribe_batch(self, audio_paths: list[str], prompt: str | None = None) -> list[TranscriptionResult]:
-        kwargs = {"audio": audio_paths if len(audio_paths) > 1 else audio_paths[0]}
-        if self.cfg.language:
-            kwargs["language"] = [self.cfg.language] * len(audio_paths) if len(audio_paths) > 1 else self.cfg.language
-        if prompt:
-            kwargs["prompt"] = prompt
+    def _chat_prompt(self, keywords: str | None) -> str:
+        user_prompt = self.BASELINE_USER_PROMPT
+        if keywords and keywords.strip():
+            keyword_text = keywords.strip()
+            if keyword_text.lower().startswith("keywords:"):
+                keyword_text = keyword_text.split(":", 1)[1].strip()
+            if keyword_text:
+                user_prompt += f" Keywords: {keyword_text}"
+        return self.tokenizer.apply_chat_template(
+            [{"role": "user", "content": user_prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+    def _transcribe_one(self, audio_path: str, keywords: str | None) -> TranscriptionResult:
+        # Granite's model card expects mono 16 kHz audio shaped as (channels, samples).
+        waveform = self._torch.from_numpy(load_audio(audio_path)).unsqueeze(0)
+        chat_prompt = self._chat_prompt(keywords)
         start = time.perf_counter()
-        inputs = self.processor.apply_transcription_request(**kwargs).to(self.model.device, self.model.dtype)
+        inputs = self.processor(chat_prompt, waveform, device=self.device, return_tensors="pt").to(self.device)
         with self._torch.inference_mode():
-            out = self.model.generate(**inputs, max_new_tokens=self.cfg.max_new_tokens, do_sample=False)
-        gen = out[:, inputs["input_ids"].shape[1]:]
-        texts = self.processor.decode(gen, return_format="transcription_only")
-        raws = self.processor.decode(gen)
-        elapsed = time.perf_counter() - start
-        results = []
-        pad = self.processor.tokenizer.pad_token_id
-        for i in range(len(audio_paths)):
-            ids = [t for t in gen[i].tolist() if t != pad]
-            ended = bool(ids) and ids[-1] in self.eos_ids
-            results.append(
-                TranscriptionResult(
-                    prediction=texts[i].strip(),
-                    raw_output=raws[i],
-                    n_generated_tokens=len(ids),
-                    hit_token_limit=(len(ids) >= self.cfg.max_new_tokens and not ended),
-                    runtime_s=elapsed / len(audio_paths),
-                )
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=self.cfg.max_new_tokens,
+                do_sample=False,
+                num_beams=1,
             )
-        return results
+        generated = outputs[:, inputs["input_ids"].shape[-1] :]
+        text = self.tokenizer.batch_decode(
+            generated,
+            add_special_tokens=False,
+            skip_special_tokens=True,
+        )[0].strip()
+        elapsed = time.perf_counter() - start
+        pad = self.tokenizer.pad_token_id
+        ids = [token for token in generated[0].tolist() if token != pad]
+        ended = bool(ids) and ids[-1] in self.eos_ids
+        return TranscriptionResult(
+            prediction=text,
+            raw_output=text,
+            n_generated_tokens=len(ids),
+            hit_token_limit=(len(ids) >= self.cfg.max_new_tokens and not ended),
+            runtime_s=elapsed,
+        )
+
+    def transcribe_batch(self, audio_paths: list[str], prompt: str | None = None) -> list[TranscriptionResult]:
+        return [self._transcribe_one(path, prompt) for path in audio_paths]

@@ -7,7 +7,7 @@ Based on the lecturer's `normalize()` in mmai_06/03_evaluation_granite.ipynb
    (the lecturer's version only strips ASCII `string.punctuation`, so curly quotes
    or en-dashes survived and counted as errors).
 2. Hyphens, dashes and slashes become spaces instead of being deleted, so
-   "anti-poverty" -> "anti poverty" (which matches VoxPopuli's normalised labels)
+   "anti-poverty" -> "anti poverty" (which avoids scoring punctuation as a word difference)
    rather than "antipoverty".
 
 Apostrophes are deleted, as in the lecturer's version ("I'm" -> "im").

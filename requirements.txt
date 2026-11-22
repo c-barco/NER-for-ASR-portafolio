@@ -8,7 +8,9 @@
 torch==2.15.0                 # import OK (CPU build)
 
 # Model + metrics core (import OK)
-transformers==5.23.0          # Qwen3-ASR "-hf" needs >=5.13.0
+# Granite 4 Speech requires transformers>=4.52.1 and its bundled adapter needs PEFT.
+transformers==5.23.0
+peft>=0.14
 accelerate==1.15.0
 safetensors==0.8.0
 tokenizers==0.23.3
@@ -20,7 +22,7 @@ numpy==2.5.5                  # core import OK; numpy.random BLOCKED on the lapt
 PyYAML==6.0.3
 tqdm==4.70.1
 
-# Streaming Hugging Face datasets (VoxPopuli / MLS adapters)
+# Streaming Hugging Face datasets (EuroSpeech adapter and parquet verification)
 datasets==5.2.0               # BLOCKED on the laptop (pyarrow.compute)
 pyarrow==26.0.1               # BLOCKED on the laptop (pyarrow.compute)
 

@@ -10,19 +10,22 @@ from ner_asr import pipeline
 from ner_asr.config import REPO_ROOT, load_config
 
 
-@pytest.mark.parametrize("name", ["voxpopuli_en", "mls_en", "common_voice_en", "cluster_kaldi", "pilot_fixture"])
+@pytest.mark.parametrize(
+    "name",
+    ["eurospeech_en", "eurospeech_de", "mls_en", "common_voice_en", "cluster_kaldi", "pilot_fixture"],
+)
 def test_all_configs_load_in_pilot_mode(name):
     cfg = load_config(f"config/{name}.yaml")
     assert cfg.mode == "pilot" and cfg.context_mode == "none"
-    assert cfg.model.name.endswith("-hf")  # Transformers-native checkpoints only
+    assert cfg.model.name == "ibm-granite/granite-4.0-1b-speech"
 
 
 def test_full_mode_requires_explicit_duration():
     with pytest.raises(ValueError, match="target_hours"):
-        load_config("config/voxpopuli_en.yaml", mode="full")
+        load_config("config/eurospeech_en.yaml", mode="full")
 
 
-class FakeQwen:
+class FakeGranite:
     def transcribe_batch(self, paths, prompt=None):
         assert prompt is None  # baseline: no context
         return [SimpleNamespace(prediction="fixture output", raw_output="fixture output",
@@ -43,7 +46,7 @@ def test_end_to_end_fixture(kaldi_fixture, tmp_path):
     again, none = pipeline.step_select(cfg)  # manifest is reused, not re-drawn
     assert none is None and [r.sample_id for r in again] == [r.sample_id for r in selected]
 
-    stats = pipeline.step_transcribe(cfg, transcriber=FakeQwen())
+    stats = pipeline.step_transcribe(cfg, transcriber=FakeGranite())
     assert stats["ok"] == 4
     summary = pipeline.step_evaluate(cfg)
     assert summary["n_success"] == 4 and summary["run_info"]["condition"] == "baseline_no_context"

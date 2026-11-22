@@ -3,6 +3,7 @@
     python -m ner_asr.pipeline select    --config config/baseline_pilot.yaml
     python -m ner_asr.pipeline transcribe --config config/baseline_pilot.yaml
     python -m ner_asr.pipeline evaluate  --config config/baseline_pilot.yaml
+    python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml
     python -m ner_asr.pipeline all       --config config/baseline_pilot.yaml [--mode full]
 """
 
@@ -14,6 +15,12 @@ from pathlib import Path
 
 from .adapters import iter_records
 from .config import RunConfig, load_config, resolve
+from .deliverable import (
+    DEFAULT_CANDIDATE_LIMIT,
+    DEFAULT_TARGET_ROWS,
+    MINIMUM_ROWS,
+    export_step2_eurospeech,
+)
 from .evaluate import build_results, export, summarize
 from .runner import environment_info, run_transcription
 from .selection import cache_audio, read_manifest, select_by_duration, write_manifest
@@ -65,9 +72,9 @@ def step_transcribe(cfg: RunConfig, transcriber=None) -> dict:
         raise ValueError("The Step 2 baseline must run with context_mode: none.")
     records = read_manifest(cfg.manifest_path)
     if transcriber is None:
-        from .transcribe import QwenASRTranscriber
+        from .transcribe import Granite4ASRTranscriber
 
-        transcriber = QwenASRTranscriber(cfg.model)
+        transcriber = Granite4ASRTranscriber(cfg.model)
     # Only audio paths are passed on; prompt is fixed to None (no entity hints).
     fn = lambda paths: transcriber.transcribe_batch(paths, prompt=None)  # noqa: E731
     stats = run_transcription(
@@ -91,12 +98,41 @@ def step_evaluate(cfg: RunConfig) -> dict:
     return summary
 
 
+def step_export_deliverable(
+    cfg: RunConfig,
+    *,
+    candidate_limit: int = DEFAULT_CANDIDATE_LIMIT,
+    target_rows: int = DEFAULT_TARGET_ROWS,
+    minimum_rows: int = MINIMUM_ROWS,
+    overwrite: bool = False,
+):
+    """Create the required one-file Step 2 EuroSpeech parquet artifact."""
+    if cfg.dataset.adapter != "hf_eurospeech":
+        raise ValueError("The Step 2 parquet export is defined for dataset.adapter: hf_eurospeech.")
+    output = resolve("data/deliverable") / f"step2_eurospeech_{cfg.dataset.language}.parquet"
+    artifact, report = export_step2_eurospeech(
+        iter_records(cfg.dataset, cfg.selection),
+        language=cfg.dataset.language,
+        output_path=output,
+        seed=cfg.selection.seed,
+        candidate_limit=candidate_limit,
+        target_rows=target_rows,
+        minimum_rows=minimum_rows,
+        overwrite=overwrite,
+    )
+    print(json.dumps(report.to_dict(), indent=2))
+    return artifact, report
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("step", choices=["select", "transcribe", "evaluate", "all"])
+    ap.add_argument("step", choices=["select", "transcribe", "evaluate", "export-deliverable", "all"])
     ap.add_argument("--config", required=True)
     ap.add_argument("--mode", choices=["pilot", "full"])
     ap.add_argument("--overwrite-manifest", action="store_true")
+    ap.add_argument("--overwrite-deliverable", action="store_true")
+    ap.add_argument("--candidate-limit", type=int, default=DEFAULT_CANDIDATE_LIMIT)
+    ap.add_argument("--target-rows", type=int, default=DEFAULT_TARGET_ROWS)
     args = ap.parse_args(argv)
     overrides = {"mode": args.mode} if args.mode else {}
     cfg = load_config(args.config, **overrides)
@@ -108,6 +144,14 @@ def main(argv: list[str] | None = None) -> None:
         step_transcribe(cfg)
     if args.step in ("evaluate", "all"):
         step_evaluate(cfg)
+    if args.step == "export-deliverable":
+        step_export_deliverable(
+            cfg,
+            candidate_limit=args.candidate_limit,
+            target_rows=args.target_rows,
+            minimum_rows=MINIMUM_ROWS,
+            overwrite=args.overwrite_deliverable,
+        )
 
 
 if __name__ == "__main__":

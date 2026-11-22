@@ -1,10 +1,25 @@
-# Model choice per environment
+# Fixed model choice
 
-| environment | model | why |
-|---|---|---|
-| Project laptop (Intel Core 5 120U, 15.6 GB RAM, no CUDA) | `Qwen/Qwen3-ASR-0.6B-hf` @ `7f1569a48a89f3e3f4dc3a5c9d28bddd903bc76c` (1.58 GB) | CPU-only; float32 1.7B needs ~8 GB RAM and is very slow. Laptop is for technical pilots only. |
-| University GPU (JupyterHub/cluster used in the labs) | `Qwen/Qwen3-ASR-1.7B-hf` @ `bcd2b5b7f32b480ab5790554cfa8347f246a14f3` (4.08 GB) | Model used in lab_06 and the lecturer notebooks. |
+The project uses one model for English and German baseline experiments:
 
-The reported baseline must use ONE model for the whole evaluation. Decide it with the team before
-the full run; the configs default to the lab model (1.7B) and the laptop pilot overrides to 0.6B.
-Neither model has been run successfully on the laptop yet (see docs/continuity).
+```text
+ibm-granite/granite-4.0-1b-speech
+revision: bd87ab862416353633ea431fe49b1614003623c5
+```
+
+It was selected for strong expected ASR performance in the project languages
+and for its documented keyword-biasing mechanism, which can be evaluated later
+for names and acronyms. This is a rationale, not a claimed improvement: no
+real-model result is reported until the fixed no-context baseline has run.
+
+The implementation follows the Granite 4 Speech model card with
+`AutoProcessor` and `AutoModelForSpeechSeq2Seq`. Its no-context baseline request
+is exactly `<|audio|>can you transcribe the speech into a written format?`.
+`prompt=None` produces that request without a keyword suffix. If a later,
+authorised experiment supplies a prompt, the wrapper treats it as a keyword
+list and uses Granite's documented ` Keywords: ...` format.
+
+Granite 4 Speech requires `transformers>=4.52.1` and a compatible PEFT
+installation for its bundled adapter. The pinned project `transformers` version
+is newer than that minimum. No model weights have been downloaded or run by
+this repository update.

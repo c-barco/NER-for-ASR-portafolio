@@ -1,22 +1,19 @@
-# University cluster route (lecturer data layout: <dir>/wav.scp + <dir>/text, TAB-separated).
-# Paths from the lecturer notebooks (mmai_06), only valid on the university machines:
-#   VoxPopuli EN : /training-1/voxpopuli/dataset_with_spaces_voxpopuli_en/test
-#   MLS EN       : /training-1/asr/kaldi_data/mls/en/test
-#   CommonVoice  : /training-1/asr/kaldi_data/cv19/en/test
-# Set dataset.path (or pass an edited copy) to the APPROVED dataset. UNTESTED on the cluster.
-# Note: the cluster VoxPopuli labels are lowercase/normalised (e.g. "what im asking mr kurz").
+# Optional local Kaldi route (``wav.scp`` + ``text``, TAB-separated).
+# EuroSpeech is consumed directly from Hugging Face by the selected configs;
+# this generic route is retained only if an authorised local mirror is supplied.
+# It is not used for the Step 2 parquet export.
 run_name: cluster_baseline
 mode: pilot
 context_mode: none
 dataset:
   adapter: kaldi_dir
-  name: CHANGE_ME_approved_dataset_en
+  name: eurospeech_en_local_mirror
   language: en
   split: test
   revision: null            # record the cluster snapshot/date you used
-  path: /training-1/voxpopuli/dataset_with_spaces_voxpopuli_en/test
+  path: data/raw/eurospeech_en_kaldi_test
 selection:
-  target_hours: null        # PENDING
+  target_hours: null        # Set explicitly only for a full evaluation.
   pilot_target_hours: 0.02
   pilot_max_items: 5
   seed: 42
@@ -24,11 +21,11 @@ selection:
   max_duration_s: 30
   allow_insufficient: false
 model:
-  name: Qwen/Qwen3-ASR-1.7B-hf
-  revision: bcd2b5b7f32b480ab5790554cfa8347f246a14f3
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
   dtype: auto
   device: auto
-  language: English
-  max_new_tokens: 256
+  language: en
+  max_new_tokens: 200
   batch_size: 8
 output_dir: results

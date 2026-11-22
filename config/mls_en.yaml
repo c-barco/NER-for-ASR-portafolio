@@ -1,4 +1,4 @@
-# Candidate 2 - Multilingual LibriSpeech English (NOT YET APPROVED).
+# Legacy alternative - Multilingual LibriSpeech English (not the selected dataset).
 # Laptop/HF route: streams parler-tts/mls_eng, a community mirror of OpenSLR 94 (test split 3,769 rows, ~0.25 GB parquet).
 # Cluster route: use config/cluster_kaldi.yaml with the lecturer's MLS path instead.
 run_name: mls_en_test_baseline
@@ -11,7 +11,7 @@ dataset:
   split: test               # official split; do not mix with train/validation
   revision: faf6604dcf0bb9ec0d9c280a140ad74da9c931b0
 selection:
-  target_hours: null        # PENDING: ~40 h requirement unclear (whole project vs baseline?)
+  target_hours: null        # Set explicitly only for a full evaluation.
   pilot_target_hours: 0.02
   pilot_max_items: 5
   seed: 42
@@ -20,11 +20,11 @@ selection:
   max_scan_items: 200       # pilot only: bounds the streamed download
   allow_insufficient: false
 model:
-  name: Qwen/Qwen3-ASR-1.7B-hf
-  revision: bcd2b5b7f32b480ab5790554cfa8347f246a14f3
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
   dtype: auto               # bf16 on CUDA, fp32 on CPU
   device: auto
-  language: English
-  max_new_tokens: 256       # same as lecturer notebooks
+  language: en
+  max_new_tokens: 200
   batch_size: 1
 output_dir: results

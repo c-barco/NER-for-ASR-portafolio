@@ -1,18 +1,16 @@
-# Later portfolio steps - NOT part of the Step 1-2 submission
+# Later stages are intentionally inactive
 
-Nothing here has been implemented or run. These notes only make sure the Step 2 design does not
-block later work.
+This repository stops at dataset preparation and no-context baseline ASR.
+There is no implemented NER, context-conditioned transcription, fine-tuning,
+or comparison experiment.
 
-| Step | What | Hook prepared in Step 2 |
-|---|---|---|
-| 3 | Failure cases, especially names | Per-recording CSV keeps raw reference + prediction; worst items listed in the notebook |
-| 4 | NER on text (spaCy, as in `04_named_entity_recognition.ipynb`) | none yet (spaCy is blocked on the laptop; works on Linux) |
-| 5 | Re-evaluate with entity context | `transcribe_batch(..., prompt=...)` already accepts a prompt; the pipeline currently **refuses** `context_mode != none`. Output columns follow lab_06 (`*_without_context` now, `*_with_context` later, merged on `wav_path`). |
-| 6 | Fine-tuning with context | `selection.check_disjoint()` for ID/audio/speaker overlap; lab_07 JSONL format (`audio`, `prompt`, `text`); HF docs: assistant turn `language <NAME><asr_text>...`, `processor_kwargs={"output_labels": True}` |
-| 7 | Compare before/after, with/without | same manifest + same normalisation for every condition |
-| 8 | Second dataset | same pipeline, different config |
+The Granite transcriber retains the public
+`transcribe_batch(paths, prompt=None)` signature so a later authorised study can
+use the model card's keyword syntax. That future work must append
+` Keywords: <kw1>, <kw2>` to Granite's fixed transcription request and must
+report where the keywords came from. It is not part of the current command,
+notebook, output parquet, or reported result.
 
-**Oracle context warning (Step 5):** entities extracted from the *reference* transcript give the model
-information it would not have in real use. Results with such context must be labelled
-"reference-derived (oracle) context" and discussed separately from context that is independently
-available (e.g. agenda, speaker lists, or entities from an earlier ASR pass).
+The Step 2 artifact preserves `sample_id`, source split, transcript, and
+speaker-null metadata so that a future protocol can document disjoint training
+and test sets. It must not be treated as a completed later-stage experiment.

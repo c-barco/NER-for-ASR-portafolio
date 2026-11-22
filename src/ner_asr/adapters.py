@@ -5,6 +5,7 @@ Status (keep this table in sync with docs/dataset_comparison.md):
 | adapter             | source                                   | tested?                                  |
 |---------------------|------------------------------------------|------------------------------------------|
 | kaldi_dir           | lecturer's cluster dirs (wav.scp + text) | fixture tests only (no cluster access)   |
+| hf_eurospeech       | disco-eth/EuroSpeech on Hugging Face     | NOT run (needs `datasets`, blocked here) |
 | hf_voxpopuli        | facebook/voxpopuli on Hugging Face       | NOT run (needs `datasets`, blocked here) |
 | hf_mls_en           | parler-tts/mls_eng (mirror of OpenSLR 94)| NOT run (needs `datasets`, blocked here) |
 | common_voice_local  | extracted Mozilla Data Collective archive| NOT run (no data downloaded)             |
@@ -20,7 +21,7 @@ import csv
 from collections.abc import Iterator
 from pathlib import Path
 
-from .audio import decode_bytes, duration_from_file
+from .audio import decode_bytes, duration_from_file, load_audio
 from .config import DatasetConfig, SelectionConfig, resolve
 from .records import AudioRecord
 
@@ -93,6 +94,60 @@ def _hf_stream(repo: str, config_name: str | None, cfg: DatasetConfig):
         revision=cfg.revision,
     )
     return ds.cast_column("audio", Audio(decode=False))
+
+
+def iter_hf_eurospeech(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRecord]:
+    """Stream one EuroSpeech country configuration.
+
+    EuroSpeech stores English under the ``uk`` configuration and German under
+    ``germany``. Its ``key`` is the stable utterance ID and
+    ``human_transcript`` is the reference. The corpus does not publish a
+    speaker field; ``video_id`` identifies a parliamentary session rather than
+    a speaker, so this adapter leaves ``speaker_id`` unset.
+
+    Audio is decoded here to normalize it to 16 kHz mono and to discard source
+    items that cannot be read. Empty transcripts remain visible to the common
+    selection filter, which records their exclusion.
+    """
+    config_name = cfg.options.get("config_name")
+    if not config_name:
+        raise ValueError("hf_eurospeech requires dataset.options.config_name (for example 'uk' or 'germany').")
+    text_field = cfg.options.get("text_field", "human_transcript")
+    ds = _hf_stream("disco-eth/EuroSpeech", config_name, cfg)
+    for row in ds:
+        audio_value = row.get("audio") or {}
+        raw_audio = audio_value.get("bytes") if isinstance(audio_value, dict) else None
+        audio_path = audio_value.get("path") if isinstance(audio_value, dict) else None
+        try:
+            if raw_audio:
+                audio, duration = decode_bytes(raw_audio)
+            elif audio_path:
+                audio = load_audio(audio_path)
+                duration = len(audio) / 16_000
+            else:
+                raise ValueError("EuroSpeech row has no readable audio reference")
+        except (OSError, RuntimeError, TypeError, ValueError):
+            # The deliverable and baseline must not include unreadable audio.
+            continue
+        sample_id = str(row.get("key") or "").strip()
+        if not sample_id:
+            continue
+        yield AudioRecord(
+            sample_id=sample_id,
+            audio_ref=f"hf://disco-eth/EuroSpeech@{cfg.revision}:{config_name}:{cfg.split}:{sample_id}",
+            reference_text=str(row.get(text_field) or ""),
+            duration_seconds=duration,
+            speaker_id=None,
+            source_split=cfg.split,
+            dataset=cfg.name,
+            dataset_revision=cfg.revision,
+            provenance=(
+                f"hf:disco-eth/EuroSpeech/{config_name}/{cfg.split};"
+                f"text_field={text_field};source_language={row.get('language')}"
+            ),
+            audio_array=audio,
+            sampling_rate=16_000,
+        )
 
 
 def iter_hf_voxpopuli(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRecord]:
@@ -184,6 +239,7 @@ def iter_fixture(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioReco
 
 ADAPTERS = {
     "kaldi_dir": iter_kaldi_dir,
+    "hf_eurospeech": iter_hf_eurospeech,
     "hf_voxpopuli": iter_hf_voxpopuli,
     "hf_mls_en": iter_hf_mls_en,
     "common_voice_local": iter_common_voice_local,

@@ -1,4 +1,4 @@
-# Candidate 3 - Mozilla Common Voice English (NOT YET APPROVED, UNTESTED).
+# Legacy alternative - Mozilla Common Voice English (not the selected dataset; untested).
 # Requires a manual download from Mozilla Data Collective (account + terms). The full
 # English scripted-speech release is ~88 GB: do not download it for a pilot. Prefer the
 # lecturer's cluster copy (cv19, Kaldi format) via config/cluster_kaldi.yaml.
@@ -13,7 +13,7 @@ dataset:
   revision: null            # fill in the exact release, e.g. "Scripted Speech 25.0"
   path: data/raw/common_voice_en   # extracted release folder (git-ignored)
 selection:
-  target_hours: null        # PENDING
+  target_hours: null        # Set explicitly only for a full evaluation.
   pilot_target_hours: 0.02
   pilot_max_items: 5
   seed: 42
@@ -21,11 +21,11 @@ selection:
   max_duration_s: 30
   allow_insufficient: false
 model:
-  name: Qwen/Qwen3-ASR-1.7B-hf
-  revision: bcd2b5b7f32b480ab5790554cfa8347f246a14f3
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
   dtype: auto
   device: auto
-  language: English
-  max_new_tokens: 256
+  language: en
+  max_new_tokens: 200
   batch_size: 1
 output_dir: results

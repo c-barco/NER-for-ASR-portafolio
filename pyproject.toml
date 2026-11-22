@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ner-asr"
 version = "0.1.0"
-description = "NER for ASR portfolio project - Steps 1-2 baseline evaluation pipeline"
+description = "NER for ASR portfolio project - EuroSpeech Step 2 export and Granite 4 baseline"
 requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]

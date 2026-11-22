@@ -1,0 +1,35 @@
+# Selected Step 2 dataset: EuroSpeech English (United Kingdom configuration).
+# The official test split is held out from EuroSpeech train/validation and is
+# used alone for baseline evaluation and the one-file exam deliverable.
+run_name: eurospeech_en_test_baseline
+mode: pilot                 # pilot | full  (CLI --mode full overrides)
+context_mode: none          # Step 2 baseline: never change
+dataset:
+  adapter: hf_eurospeech
+  name: eurospeech_en
+  language: en
+  split: test
+  revision: 7a55bbcee3933f5d9817bb2d4c37399d596f543d
+  options:
+    config_name: uk
+    text_field: human_transcript
+selection:
+  # Set this explicitly only when scheduling a full baseline evaluation.
+  target_hours: null
+  pilot_target_hours: 0.02
+  pilot_max_items: 5
+  seed: 42
+  min_duration_s: 2
+  max_duration_s: 20
+  max_scan_items: 200       # pilot only: bounds streamed data
+  allow_insufficient: false
+model:
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
+  dtype: auto               # bf16 on CUDA, fp32 on CPU
+  device: auto
+  language: en              # run metadata; Granite's documented prompt auto-handles language
+  max_new_tokens: 200       # official Granite 4 Speech example
+  batch_size: 1
+output_dir: results
+

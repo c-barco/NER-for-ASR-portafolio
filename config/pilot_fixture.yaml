@@ -16,10 +16,10 @@ selection:
   min_duration_s: 0.5
   max_duration_s: 30
 model:
-  name: Qwen/Qwen3-ASR-0.6B-hf
-  revision: 7f1569a48a89f3e3f4dc3a5c9d28bddd903bc76c
-  language: English
-  max_new_tokens: 256
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
+  language: en
+  max_new_tokens: 200
   batch_size: 1
 output_dir: results/fixture
 manifest_dir: results/fixture/manifests

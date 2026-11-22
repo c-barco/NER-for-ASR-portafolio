@@ -8,16 +8,16 @@ import json
 from pathlib import Path
 
 CELLS = [
-    ("md", """# 01 - Baseline evaluation (portfolio Steps 1-2)
+    ("md", """# 01 - EuroSpeech / Granite 4 baseline and Step 2 dataset
 
-Evaluate an **unchanged pretrained** audio language model (Qwen3-ASR, Transformers `-hf` checkpoint)
-on the **approved** English dataset, **without any named-entity context**, and report WER/CER.
+Orchestrate the **unchanged pretrained** IBM Granite 4 Speech baseline on the approved EuroSpeech English or German configuration, **without named-entity context**, and report WER/CER.
 
 * Based on the lecturer's lab notebooks (`jwirth-iisys/mmai_06`, commit `924b10a`); see `docs/lecturer_reference.md`.
 * Reusable code lives in `src/ner_asr/`; this notebook only orchestrates it.
-* **Out of scope here:** entity extraction, context-conditioned runs, fine-tuning (portfolio Steps 3-8).
-* Dataset approval is **pending**. Until then, results from this notebook are technical pilots, not portfolio results."""),
-    ("md", "## 1. Configuration\nChoose the config file (or set the `NER_ASR_CONFIG` environment variable). `MODE` is `pilot` by default; `full` requires `selection.target_hours`, which is still pending clarification."),
+* **Out of scope:** entity extraction, context-conditioned runs, error analysis, and fine-tuning.
+* Dataset and model are fixed: EuroSpeech (`uk` / `germany`) and `ibm-granite/granite-4.0-1b-speech`.
+* This notebook does not download data or model weights unless its explicit environment switches are enabled."""),
+    ("md", "## 1. Configuration\nChoose the English or German EuroSpeech config (or set `NER_ASR_CONFIG`). `MODE` is `pilot` by default; `full` requires an explicit `selection.target_hours`. The optional parquet switch prepares the exam artifact without running model inference."),
     ("code", """import os, sys, json
 from pathlib import Path
 
@@ -26,17 +26,20 @@ sys.path.insert(0, str(REPO / "src"))
 
 from ner_asr.config import load_config
 
-CONFIG = os.environ.get("NER_ASR_CONFIG", "config/voxpopuli_en.yaml")  # change after approval
+CONFIG = os.environ.get("NER_ASR_CONFIG", "config/eurospeech_en.yaml")
 MODE = os.environ.get("NER_ASR_MODE", "pilot")                          # "pilot" | "full"
-RUN_INFERENCE = os.environ.get("NER_ASR_RUN_INFERENCE", "0") == "1"      # downloads + runs the model
+RUN_INFERENCE = os.environ.get("NER_ASR_RUN_INFERENCE", "0") == "1"      # downloads + runs Granite
+EXPORT_STEP2_DELIVERABLE = os.environ.get("NER_ASR_EXPORT_DELIVERABLE", "0") == "1"  # downloads source data only
 
 cfg = load_config(CONFIG, mode=MODE)
 if MODE == "full" and not cfg.run_name.endswith("_full"):
     cfg.run_name += "_full"
 IS_FIXTURE = cfg.dataset.adapter == "fixture"
+RUN_SELECTION = IS_FIXTURE or os.environ.get("NER_ASR_RUN_SELECTION", "0") == "1"
 print(json.dumps({"config": CONFIG, "run_name": cfg.run_name, "mode": cfg.mode, "dataset": cfg.dataset.name,
                   "split": cfg.dataset.split, "model": cfg.model.name, "context_mode": cfg.context_mode,
-                  "target_seconds": cfg.target_seconds(), "FIXTURE": IS_FIXTURE}, indent=2))"""),
+                  "target_seconds": cfg.target_seconds(), "FIXTURE": IS_FIXTURE, "RUN_SELECTION": RUN_SELECTION,
+                  "EXPORT_STEP2_DELIVERABLE": EXPORT_STEP2_DELIVERABLE}, indent=2))"""),
     ("md", "## 2. Environment and hardware check"),
     ("code", """import platform
 from ner_asr.runner import environment_info
@@ -52,7 +55,7 @@ except Exception as exc:
     info["torch_error"] = repr(exc)
 info["python_executable"] = sys.executable  # confirms which environment the kernel uses
 print(json.dumps(info, indent=2))"""),
-    ("md", "## 3. Dataset loading\nThe adapter named in the config yields records in the common format (`sample_id`, audio reference, `reference_text`, `duration_seconds`, `speaker_id`, `source_split`). If a manifest for this run already exists it is reused, so the selection stays fixed."),
+    ("md", "## 3. Dataset loading\nThe adapter named in the config yields records in the common format (`sample_id`, audio reference, `reference_text`, `duration_seconds`, `speaker_id`, `source_split`). Streaming data is disabled by default: set `NER_ASR_RUN_SELECTION=1` to make the fixed pilot selection, or reuse an existing manifest without downloading."),
     ("code", """from ner_asr import pipeline
 from ner_asr.selection import read_manifest
 
@@ -60,13 +63,22 @@ if IS_FIXTURE:
     import subprocess
     subprocess.run([sys.executable, str(REPO / "tests" / "make_fixture.py")], check=True)  # SYNTHETIC tones
 print("manifest:", cfg.manifest_path, "exists:", cfg.manifest_path.exists())"""),
-    ("md", "## 4. Inspection and duration-based selection\nDeterministic selection by cumulative duration from one official split. In full mode, an insufficient split raises an error instead of silently mixing splits."),
-    ("code", """records, report = pipeline.step_select(cfg)
-total_h = sum(r.duration_seconds or 0 for r in records) / 3600
-print(f"{len(records)} recordings, {total_h:.3f} h selected from split '{cfg.dataset.split}'")
-sel_json = cfg.manifest_path.with_suffix(".selection.json")
-if sel_json.exists():
-    print(sel_json.read_text(encoding="utf-8"))"""),
+    ("md", "## 4. Inspection and duration-based selection\nWith `NER_ASR_RUN_SELECTION=1`, the notebook makes a deterministic cumulative-duration selection from one official EuroSpeech split. The selected configs use `test`; the pipeline refuses to silently mix train, validation, and test data."),
+    ("code", """if RUN_SELECTION:
+    records, report = pipeline.step_select(cfg)
+elif cfg.manifest_path.exists():
+    records, report = read_manifest(cfg.manifest_path), None
+    print("Using existing fixed manifest without streaming data:", cfg.manifest_path)
+else:
+    records, report = [], None
+    print("Selection skipped; set NER_ASR_RUN_SELECTION=1 to stream the selected split.")
+
+if records:
+    total_h = sum(r.duration_seconds or 0 for r in records) / 3600
+    print(f"{len(records)} recordings, {total_h:.3f} h selected from split '{cfg.dataset.split}'")
+    sel_json = cfg.manifest_path.with_suffix(".selection.json")
+    if sel_json.exists():
+        print(sel_json.read_text(encoding="utf-8"))"""),
     ("code", """# Basic data checks: transcripts and audio of a few selected items
 import soundfile as sf
 problems = []
@@ -89,7 +101,7 @@ try:
     display(Audio(load_audio(records[0].audio_ref), rate=16000))
 except Exception as exc:
     print("audio preview unavailable:", exc)"""),
-    ("md", "## 5. Model loading\nUnchanged pretrained model, loaded like in the lecturer's notebook (`AutoProcessor` + `AutoModelForMultimodalLM`). Set `NER_ASR_RUN_INFERENCE=1` (or `RUN_INFERENCE = True`) to download and run it. FIXTURE configs use a fake transcriber instead."),
+    ("md", "## 5. Model loading\nThe unchanged Granite 4 model is loaded with `AutoProcessor` + `AutoModelForSpeechSeq2Seq`. Its no-context request is exactly `<|audio|>can you transcribe the speech into a written format?`; the baseline passes `prompt=None`. Set `NER_ASR_RUN_INFERENCE=1` (or `RUN_INFERENCE = True`) to download and run it. FIXTURE configs use a fake transcriber instead."),
     ("code", """transcriber = None
 if IS_FIXTURE:
     from types import SimpleNamespace
@@ -100,14 +112,16 @@ if IS_FIXTURE:
                                     n_generated_tokens=2, hit_token_limit=False, runtime_s=0.0) for _ in paths]
     transcriber = FixtureTranscriber()
 elif RUN_INFERENCE:
-    from ner_asr.transcribe import QwenASRTranscriber
-    transcriber = QwenASRTranscriber(cfg.model)
+    from ner_asr.transcribe import Granite4ASRTranscriber
+    transcriber = Granite4ASRTranscriber(cfg.model)
     print("loaded", cfg.model.name, "on", transcriber.device, transcriber.model.dtype)
 else:
     print("RUN_INFERENCE is False: skipping model loading.")"""),
-    ("md", "## 6. Pilot transcription\nNo prompt, no entity hints, no reference text is passed to the model. Predictions are appended to a JSONL file after every batch; re-running this cell resumes and only retries missing or failed recordings."),
-    ("code", """if transcriber is not None:
+    ("md", "## 6. Pilot transcription\nNo prompt, no entity hints, no reference text is passed to the model. This requires a fixed manifest from the explicit selection step. Predictions are appended to a JSONL file after every batch; re-running this cell resumes and only retries missing or failed recordings."),
+    ("code", """if transcriber is not None and records:
     stats = pipeline.step_transcribe(cfg, transcriber=transcriber)
+elif not records:
+    print("skipped; no manifest selected yet. Set NER_ASR_RUN_SELECTION=1 first.")
 else:
     print("skipped; existing predictions file:", cfg.predictions_path, cfg.predictions_path.exists())"""),
     ("md", "## 7. Baseline evaluation\nReferences and predictions are normalised identically at scoring time (`src/ner_asr/normalize.py`); the raw texts stay unchanged in the exports."),
@@ -135,10 +149,22 @@ if csv_path.exists():
         print(f"WER {float(r['wer']):.2f} | {r['sample_id']}\\n  REF : {r['reference_text']}\\n  PRED: {r['prediction']}")
     flagged = [r["sample_id"] for r in rows if "True" in (r["flag_hit_token_limit"], r["flag_empty_prediction"], r["flag_short_vs_reference"])]
     print("flagged (possible truncation / empty):", flagged or "none")"""),
-    ("md", "## 10. Export results\nFiles written by `step_evaluate` (large outputs are git-ignored; commit only the small summary files you want to report)."),
+    ("md", "## 10. Outputs and Step 2 dataset artifact\n`step_evaluate` writes baseline metrics. Set `NER_ASR_EXPORT_DELIVERABLE=1` only when you deliberately want to stream EuroSpeech and create the required one-file parquet artifact (at least 1,000 rows); it does not run Granite inference."),
     ("code", """for p in [cfg.manifest_path, cfg.predictions_path,
           cfg.metrics_dir / f"{cfg.run_name}_per_recording.csv", cfg.metrics_dir / f"{cfg.run_name}_summary.json"]:
-    print(("OK  " if p.exists() else "--  ") + str(p.relative_to(REPO) if p.is_relative_to(REPO) else p))"""),
+    print(("OK  " if p.exists() else "--  ") + str(p.relative_to(REPO) if p.is_relative_to(REPO) else p))
+
+if EXPORT_STEP2_DELIVERABLE:
+    artifact, deliverable_report = pipeline.step_export_deliverable(cfg)
+    print(json.dumps(deliverable_report.to_dict(), indent=2))
+    try:
+        from IPython.display import Audio, display
+        from ner_asr.deliverable import sample_audio_bytes
+        display(Audio(data=sample_audio_bytes(artifact)))
+    except Exception as exc:
+        print("parquet audio preview unavailable:", exc)
+else:
+    print("Step 2 parquet export skipped; set NER_ASR_EXPORT_DELIVERABLE=1 to run it.")"""),
 ]
 
 
