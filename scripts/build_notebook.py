@@ -35,7 +35,9 @@ Choose a language config. The default is English; rerun the notebook with
 Set a switch to `1` only when you intend the action:
 `NER_ASR_RUN_SELECTION=1` streams the pilot split,
 `NER_ASR_RUN_INFERENCE=1` downloads/runs Granite, and
-`NER_ASR_EXPORT_DELIVERABLE=1` creates the parquet artifact.""",
+`NER_ASR_EXPORT_DELIVERABLE=1` creates the parquet artifact. Set
+`NER_ASR_OVERWRITE_MANIFEST=1` when changing the selected pilot size so the
+old manifest is replaced.""",
     ),
     (
         "code",
@@ -56,6 +58,7 @@ DELIVERABLE_DE_CONFIG = os.environ.get("NER_ASR_CONFIG_DE", "config/eurospeech_d
 MODE = os.environ.get("NER_ASR_MODE", "pilot")
 RUN_INFERENCE = os.environ.get("NER_ASR_RUN_INFERENCE", "0") == "1"
 EXPORT_STEP2_DELIVERABLE = os.environ.get("NER_ASR_EXPORT_DELIVERABLE", "0") == "1"
+OVERWRITE_MANIFEST = os.environ.get("NER_ASR_OVERWRITE_MANIFEST", "0") == "1"
 
 cfg = load_config(CONFIG, mode=MODE)
 if MODE == "full" and not cfg.run_name.endswith("_full"):
@@ -72,6 +75,7 @@ print(json.dumps({
     "run_selection": RUN_SELECTION,
     "run_inference": RUN_INFERENCE,
     "export_deliverable": EXPORT_STEP2_DELIVERABLE,
+    "overwrite_manifest": OVERWRITE_MANIFEST,
 }, indent=2))""",
     ),
     (
@@ -118,7 +122,7 @@ what needs to be enabled.""",
     subprocess.run([sys.executable, str(REPO / "tests" / "make_fixture.py")], check=True)
 
 if RUN_SELECTION:
-    records, report = pipeline.step_select(cfg)
+    records, report = pipeline.step_select(cfg, overwrite=OVERWRITE_MANIFEST)
 elif cfg.manifest_path.exists():
     records, report = read_manifest(cfg.manifest_path), None
     print("Using existing manifest:", cfg.manifest_path)
