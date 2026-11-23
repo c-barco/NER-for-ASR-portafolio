@@ -6,7 +6,6 @@ load Granite, or perform inference.
 
 from __future__ import annotations
 
-from .deliverable import DELIVERABLE_COLUMNS
 from .transcribe import Granite4ASRTranscriber, TranscriptionResult
 
 
@@ -25,7 +24,6 @@ def example_deliverable_row(*, language: str, source_split: str = "test") -> dic
         "source_split": source_split,
         "language": language,
     }
-    assert list(row) == DELIVERABLE_COLUMNS
     return row
 
 

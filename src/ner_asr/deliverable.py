@@ -417,7 +417,11 @@ def _write_parquet(
     artifact.parent.mkdir(parents=True, exist_ok=True)
     temporary = artifact.with_name(f".{artifact.stem}.tmp{artifact.suffix}")
     if temporary.exists():
-        raise FileExistsError(f"Temporary export path already exists: {temporary}")
+        if not overwrite:
+            raise FileExistsError(f"Temporary export path already exists: {temporary}")
+        # A retry explicitly authorized with overwrite=True may replace the
+        # temporary artifact left by an earlier failed validation.
+        temporary.unlink()
     _rows_to_dataset(rows).to_parquet(str(temporary))
     try:
         reload_and_validate_parquet(

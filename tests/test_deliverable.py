@@ -147,3 +147,25 @@ def test_bilingual_parquet_roundtrip_is_balanced_when_datasets_is_available(tmp_
     assert set(reloaded["language"]) == {"en", "de"}
     assert len(set(reloaded["sample_id"])) == 6
     assert all(reference.startswith("memory-") for reference in reloaded["audio_ref"])
+
+
+def test_overwrite_removes_a_stale_temporary_parquet_when_datasets_is_available(tmp_path):
+    try:
+        import datasets  # noqa: F401
+    except Exception as exc:  # local Smart App Control can block pyarrow.compute
+        pytest.skip(f"datasets is unavailable in this environment: {exc}")
+
+    output = Path(tmp_path) / "step2_eurospeech_en.parquet"
+    temporary = output.with_name(f".{output.stem}.tmp{output.suffix}")
+    temporary.write_bytes(b"stale failed export")
+    artifact, _ = export_step2_eurospeech(
+        _records(),
+        language="en",
+        output_path=output,
+        seed=42,
+        candidate_limit=6,
+        target_rows=6,
+        minimum_rows=3,
+        overwrite=True,
+    )
+    assert artifact == output and not temporary.exists()
