@@ -16,14 +16,15 @@ dataset:
 selection:
   # for scheduling a full baseline evaluation.
   target_hours: null
-  pilot_target_hours: 0.02
+  # Use the item quota below, rather than a duration cap, for the Granite pilot.
+  pilot_target_hours: null
   # Granite pilot: 250 English recordings. The bilingual pilot is therefore
   # 250 EN + 250 DE when each language config is run once.
   pilot_max_items: 250
   seed: 42
   min_duration_s: 2
   max_duration_s: 20
-  max_scan_items: 200       # pilot only: bounds streamed data
+  max_scan_items: 1200      # enough candidates to obtain the fixed 250-item pilot after filtering
   allow_insufficient: false
 model:
   name: ibm-granite/granite-4.0-1b-speech

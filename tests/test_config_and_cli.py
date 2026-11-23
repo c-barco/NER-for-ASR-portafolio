@@ -8,6 +8,7 @@ import yaml
 
 from ner_asr import pipeline
 from ner_asr.config import REPO_ROOT, load_config
+from ner_asr.records import AudioRecord
 
 
 @pytest.mark.parametrize(
@@ -32,6 +33,33 @@ def test_bilingual_deliverable_quotas_are_explicit_and_match():
     assert en_cfg.deliverable.candidate_limit_per_language == 1_200
     assert en_cfg.deliverable.rows_per_language == 1_000
     assert en_cfg.deliverable.total_rows == 2_000
+
+
+def test_eurospeech_pilot_uses_the_250_recording_quota_without_a_duration_cap():
+    for path in ("config/eurospeech_en.yaml", "config/eurospeech_de.yaml"):
+        cfg = load_config(path)
+        assert cfg.selection.pilot_max_items == 250
+        assert cfg.target_seconds() is None
+        assert cfg.max_items() == 250
+        assert cfg.selection.max_scan_items == 1_200
+
+
+def test_eurospeech_pilot_fails_loudly_when_it_cannot_select_250(monkeypatch, tmp_path):
+    cfg = load_config("config/eurospeech_en.yaml")
+    cfg.manifest_dir = str(tmp_path / "manifests")
+    records = [
+        AudioRecord(
+            sample_id=f"short-{index}",
+            audio_ref=f"memory-{index}",
+            reference_text="A valid transcript.",
+            duration_seconds=3.0,
+            source_split="test",
+        )
+        for index in range(10)
+    ]
+    monkeypatch.setattr(pipeline, "iter_records", lambda *_: iter(records))
+    with pytest.raises(pipeline.InsufficientAudioError, match="expected exactly 250"):
+        pipeline.step_select(cfg)
 
 
 class FakeGranite:

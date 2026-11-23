@@ -189,8 +189,8 @@ else:
 
 This is separate from model inference. It streams about 1,200 candidates for
 each language from the official test split, writes one embedded-audio parquet
-with exactly 1,000 English and 1,000 German valid 2–20 second rows, reloads it,
-and displays one WAV sample. The final file is
+with exactly 1,000 English and 1,000 German valid 2–20 second rows, then
+checks the final file immediately and displays one WAV sample. The final file is
 `data/deliverable/step2_eurospeech_en_de.parquet`; every row carries its
 `language` value.""",
     ),
@@ -199,11 +199,21 @@ and displays one WAV sample. The final file is
         """if EXPORT_STEP2_DELIVERABLE:
     de_cfg = load_config(DELIVERABLE_DE_CONFIG, mode=MODE)
     artifact, report = pipeline.step_export_deliverable(cfg, de_cfg)
-    print(json.dumps(report.to_dict(), indent=2))
+    from ner_asr.deliverable import reload_and_validate_parquet
+
+    verified = reload_and_validate_parquet(
+        artifact,
+        minimum_rows=2_000,
+        expected_rows=2_000,
+        expected_language_counts={"en": 1_000, "de": 1_000},
+    )
+    print("Parquet checks passed:", len(verified), "rows | language counts:", {
+        "en": verified["language"].count("en"),
+        "de": verified["language"].count("de"),
+    })
     try:
         from IPython.display import Audio, display
-        from ner_asr.deliverable import sample_audio_bytes
-        display(Audio(data=sample_audio_bytes(artifact)))
+        display(Audio(data=verified[0]["audio"]["bytes"]))
     except Exception as exc:
         print("parquet audio preview unavailable:", exc)
 else:

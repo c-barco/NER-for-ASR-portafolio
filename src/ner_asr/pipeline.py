@@ -21,7 +21,7 @@ from .deliverable import (
 )
 from .evaluate import build_results, export, summarize
 from .runner import environment_info, run_transcription
-from .selection import cache_audio, read_manifest, select_by_duration, write_manifest
+from .selection import InsufficientAudioError, cache_audio, read_manifest, select_by_duration, write_manifest
 
 # select a subset of the dataset for pilot or full evaluation, and write a manifest
 def step_select(cfg: RunConfig, *, overwrite: bool = False):
@@ -43,6 +43,15 @@ def step_select(cfg: RunConfig, *, overwrite: bool = False):
         # unless explicitly allowed (and then recorded in the selection report).
         allow_insufficient=sel.allow_insufficient or cfg.mode == "pilot",
     )
+    if (
+        cfg.mode == "pilot"
+        and cfg.dataset.adapter == "hf_eurospeech"
+        and len(selected) != sel.pilot_max_items
+    ):
+        raise InsufficientAudioError(
+            f"EuroSpeech {cfg.dataset.language} pilot selected {len(selected)} recordings; "
+            f"expected exactly {sel.pilot_max_items}. Increase selection.max_scan_items or inspect the source split."
+        )
     cache_audio(selected, resolve(cfg.audio_cache_dir))
     write_manifest(selected, path, report)
     print(json.dumps(report.to_dict(), indent=2))
@@ -141,7 +150,6 @@ def step_export_deliverable(
         minimum_rows_per_language=MINIMUM_ROWS,
         overwrite=overwrite,
     )
-    print(json.dumps(report.to_dict(), indent=2))
     return artifact, report
 
 
