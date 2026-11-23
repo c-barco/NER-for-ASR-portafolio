@@ -90,13 +90,9 @@ def step_evaluate(cfg: RunConfig) -> dict:
     records = read_manifest(cfg.manifest_path)
     rows = build_results(records, cfg.predictions_path)
     summary = summarize(rows, run_info={**run_info(cfg), "environment": environment_info()})
-    paths = export(rows, summary, cfg.metrics_dir, cfg.run_name)
+    export(rows, summary, cfg.metrics_dir, cfg.run_name)
     print("Mean WER:", summary["per_recording_wer_mean"])
     print("Mean CER:", summary["per_recording_cer_mean"])
-    print("WER/CER descriptive statistics:")
-    print(json.dumps(summary["per_recording_wer_cer_describe"], indent=2, default=str))
-    print(json.dumps({k: v for k, v in summary.items() if k != "run_info"}, indent=2, default=str))
-    print({k: str(v) for k, v in paths.items()})
     return summary
 
 

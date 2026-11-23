@@ -30,7 +30,9 @@ all reusable work stays in `src/ner_asr/`.
         "md",
         """## 1. Configuration
 
-Choose a language config. Set a switch to `1` only when you intend the action:
+Choose a language config. The default is English; rerun the notebook with
+`NER_ASR_CONFIG=config/eurospeech_de.yaml` for the 250-record German pilot.
+Set a switch to `1` only when you intend the action:
 `NER_ASR_RUN_SELECTION=1` streams the pilot split,
 `NER_ASR_RUN_INFERENCE=1` downloads/runs Granite, and
 `NER_ASR_EXPORT_DELIVERABLE=1` creates the parquet artifact.""",
@@ -174,8 +176,6 @@ summary = pipeline.step_evaluate(cfg) if cfg.predictions_path.exists() else None
 if summary:
     print("Mean WER:", summary["per_recording_wer_mean"])
     print("Mean CER:", summary["per_recording_cer_mean"])
-    print(json.dumps(summary["per_recording_wer_cer_describe"], indent=2))
-    print("Saved WER-descending results:", cfg.metrics_dir / f"{cfg.run_name}_results_without_context.tsv")
 else:
     print("No predictions to evaluate yet.")""",
     ),

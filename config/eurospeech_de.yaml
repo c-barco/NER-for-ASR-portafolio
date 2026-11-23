@@ -17,7 +17,9 @@ selection:
   # for scheduling a full baseline evaluation.
   target_hours: null
   pilot_target_hours: 0.02
-  pilot_max_items: 5
+  # Granite pilot: 250 German recordings. The bilingual pilot is therefore
+  # 250 EN + 250 DE when each language config is run once.
+  pilot_max_items: 250
   seed: 42
   min_duration_s: 2
   max_duration_s: 20
