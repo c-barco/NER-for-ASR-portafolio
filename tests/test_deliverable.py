@@ -112,7 +112,6 @@ def test_small_parquet_roundtrip_when_datasets_is_available(tmp_path):
         "audio_ref",
         "text",
         "duration_seconds",
-        "speaker_id",
         "source_split",
         "language",
     ]

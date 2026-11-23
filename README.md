@@ -49,7 +49,7 @@ either language cannot supply its required 1,000 valid rows. Each output row
 has exactly:
 
 ```text
-sample_id, audio_ref, text, duration_seconds, speaker_id, source_split, language
+sample_id, audio_ref, text, duration_seconds, source_split, language
 ```
 
 Both EuroSpeech configuration files make the fixed quota explicit:
@@ -58,9 +58,7 @@ Both EuroSpeech configuration files make the fixed quota explicit:
 
 `audio_ref` is a stable EuroSpeech source reference, not embedded waveform
 bytes. Audio is decoded, converted to mono 16 kHz WAV, and checked before a
-row is accepted, but the resulting WAV is not stored in the parquet. EuroSpeech
-does not publish a speaker identity for these rows; `video_id` is a
-parliamentary session rather than a speaker, so `speaker_id` is null. The
+row is accepted, but the resulting WAV is not stored in the parquet. The
 exporter reloads the parquet using `datasets.load_dataset("parquet", ...)` and
 prints the row count, hours, duration statistics, duration-bin counts, and a
 clearly labelled entity-like proxy. It does not run NER: EuroSpeech has no

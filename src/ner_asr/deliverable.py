@@ -209,7 +209,6 @@ def _rows_to_dataset(rows: list[dict[str, Any]]):
             "audio_ref": Value("string"),
             "text": Value("string"),
             "duration_seconds": Value("float32"),
-            "speaker_id": Value("string"),
             "source_split": Value("string"),
             "language": Value("string"),
         }
@@ -395,7 +394,6 @@ def _rows_from_prepared(
                 "audio_ref": item.record.audio_ref,
                 "text": item.record.reference_text,
                 "duration_seconds": float(item.duration_seconds),
-                "speaker_id": item.record.speaker_id,
                 "source_split": prepared.source_split,
                 "language": prepared.language,
             }

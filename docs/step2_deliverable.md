@@ -22,7 +22,6 @@ Its columns are:
 | `audio_ref` | stable EuroSpeech source reference; no waveform bytes are stored |
 | `text` | `human_transcript` reference |
 | `duration_seconds` | duration measured from the normalized WAV |
-| `speaker_id` | null; EuroSpeech does not publish a speaker identifier |
 | `source_split` | the one official source split used (`test`) |
 | `language` | `en` or `de` |
 

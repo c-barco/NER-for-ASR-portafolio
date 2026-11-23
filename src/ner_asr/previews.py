@@ -20,7 +20,6 @@ def example_deliverable_row(*, language: str, source_split: str = "test") -> dic
         "audio_ref": "hf://disco-eth/EuroSpeech@<revision>:<country>:test:<key>",
         "text": "<human_transcript>",
         "duration_seconds": 12.5,
-        "speaker_id": None,
         "source_split": source_split,
         "language": language,
     }
