@@ -96,6 +96,9 @@ WER-descending, tab-separated no-context result file at
 `results/metrics/<run_name>_results_without_context.tsv`. Its name deliberately
 does not imply a context-conditioned experiment.
 
+The recorded 250-item-per-language pilot outcomes and the verified parquet
+summary are in [pilot baseline results](reports/pilot_baseline_results.md).
+
 `all` runs those three baseline stages. A full evaluation additionally requires
 an explicit `selection.target_hours`; it is not guessed by the code. The
 notebook [`01_baseline_evaluation.ipynb`](notebooks/01_baseline_evaluation.ipynb)
