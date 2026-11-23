@@ -13,12 +13,12 @@ from .transcribe import Granite4ASRTranscriber, TranscriptionResult
 def example_deliverable_row(*, language: str, source_split: str = "test") -> dict:
     """Return a JSON-displayable example of one exported Step 2 row.
 
-    The audio value mirrors the ``datasets.Audio`` parquet structure, but uses
-    text in place of binary WAV data so it can be shown safely in a notebook.
+    The export is deliberately lightweight: it stores a stable source-audio
+    reference rather than embedded WAV bytes.
     """
     row = {
         "sample_id": "<EuroSpeech key>",
-        "audio": {"bytes": "<embedded 16 kHz mono PCM WAV bytes>", "path": None},
+        "audio_ref": "hf://disco-eth/EuroSpeech@<revision>:<country>:test:<key>",
         "text": "<human_transcript>",
         "duration_seconds": 12.5,
         "speaker_id": None,

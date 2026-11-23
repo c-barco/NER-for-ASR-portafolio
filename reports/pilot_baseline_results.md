@@ -22,7 +22,7 @@ cross-language comparison.
 | Artifact | `data/deliverable/step2_eurospeech_en_de.parquet` |
 | Rows / language balance | 2,000 total: 1,000 EN and 1,000 DE |
 | Source splits | `test` for both languages |
-| Embedded audio / reload | parquet reloaded successfully; WAV sample was readable and playable |
+| Historical artifact check | the original embedded-audio parquet reloaded successfully and a WAV sample played |
 | Audio duration | 8.359 h total; 10.02–20.00 s observed; median 15.05 s |
 | Populated duration bins | 10–15 s: 987; 15–20 s: 1,013 |
 | Unreadable selected items | 0 |
@@ -30,3 +30,7 @@ cross-language comparison.
 The entity-like text proxy was 50.5% overall (37.8% EN, 63.3% DE). It is not
 an NER annotation or a ground-truth entity rate; German capitalization makes
 it especially unsuitable for comparison.
+
+> The checks above describe the original embedded-audio export. The approved
+> compact `audio_ref` format must be regenerated and revalidated before it is
+> submitted; it preserves the same selection rules but stores no waveform bytes.

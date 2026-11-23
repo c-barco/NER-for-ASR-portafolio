@@ -37,7 +37,8 @@ Set a switch to `1` only when you intend the action:
 `NER_ASR_RUN_INFERENCE=1` downloads/runs Granite, and
 `NER_ASR_EXPORT_DELIVERABLE=1` creates the parquet artifact. Set
 `NER_ASR_OVERWRITE_MANIFEST=1` when changing the selected pilot size so the
-old manifest is replaced.""",
+old manifest is replaced. Set `NER_ASR_OVERWRITE_DELIVERABLE=1` to replace an
+older embedded-audio parquet with the lightweight reference-only artifact.""",
     ),
     (
         "code",
@@ -59,6 +60,7 @@ MODE = os.environ.get("NER_ASR_MODE", "pilot")
 RUN_INFERENCE = os.environ.get("NER_ASR_RUN_INFERENCE", "0") == "1"
 EXPORT_STEP2_DELIVERABLE = os.environ.get("NER_ASR_EXPORT_DELIVERABLE", "0") == "1"
 OVERWRITE_MANIFEST = os.environ.get("NER_ASR_OVERWRITE_MANIFEST", "0") == "1"
+OVERWRITE_DELIVERABLE = os.environ.get("NER_ASR_OVERWRITE_DELIVERABLE", "0") == "1"
 
 cfg = load_config(CONFIG, mode=MODE)
 if MODE == "full" and not cfg.run_name.endswith("_full"):
@@ -76,14 +78,15 @@ print(json.dumps({
     "run_inference": RUN_INFERENCE,
     "export_deliverable": EXPORT_STEP2_DELIVERABLE,
     "overwrite_manifest": OVERWRITE_MANIFEST,
+    "overwrite_deliverable": OVERWRITE_DELIVERABLE,
 }, indent=2))""",
     ),
     (
         "md",
         """## 2. What one dataset row looks like
 
-This is a safe structural preview of one final parquet row. It uses a readable
-placeholder instead of real binary audio and does not open or download data.""",
+This is a safe structural preview of one final parquet row. It contains an
+audio source reference rather than binary audio and does not open or download data.""",
     ),
     (
         "code",
@@ -188,17 +191,22 @@ else:
         """## 6. Step 2 parquet artifact (optional)
 
 This is separate from model inference. It streams about 1,200 candidates for
-each language from the official test split, writes one embedded-audio parquet
-with exactly 1,000 English and 1,000 German valid 2–20 second rows, then
-checks the final file immediately and displays one WAV sample. The final file is
+each language from the official test split, validates source audio, and writes
+one lightweight reference-only parquet with exactly 1,000 English and 1,000
+German valid 2–20 second rows. The final file is
 `data/deliverable/step2_eurospeech_en_de.parquet`; every row carries its
-`language` value.""",
+`language` value. If an older embedded-audio file already exists, set
+`NER_ASR_OVERWRITE_DELIVERABLE=1` to regenerate it in this compact format.""",
     ),
     (
         "code",
         """if EXPORT_STEP2_DELIVERABLE:
     de_cfg = load_config(DELIVERABLE_DE_CONFIG, mode=MODE)
-    artifact, report = pipeline.step_export_deliverable(cfg, de_cfg)
+    artifact, report = pipeline.step_export_deliverable(
+        cfg,
+        de_cfg,
+        overwrite=OVERWRITE_DELIVERABLE,
+    )
     from ner_asr.deliverable import reload_and_validate_parquet
 
     verified = reload_and_validate_parquet(
@@ -211,11 +219,6 @@ checks the final file immediately and displays one WAV sample. The final file is
         "en": verified["language"].count("en"),
         "de": verified["language"].count("de"),
     })
-    try:
-        from IPython.display import Audio, display
-        display(Audio(data=verified[0]["audio"]["bytes"]))
-    except Exception as exc:
-        print("parquet audio preview unavailable:", exc)
 else:
     print("Parquet export skipped. Set NER_ASR_EXPORT_DELIVERABLE=1 to run it.")""",
     ),

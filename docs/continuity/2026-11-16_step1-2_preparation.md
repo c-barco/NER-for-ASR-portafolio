@@ -8,6 +8,6 @@ not download data or run inference until its explicit command is invoked.
 
 Current scope remains limited to data preparation and a no-context baseline.
 The next deliberate action is to run the parquet export on an environment where
-`datasets` and PyArrow work, inspect its printed validation report and notebook
-audio player, and submit the resulting file. Model inference remains a separate
+`datasets` and PyArrow work, inspect its printed validation report and submit
+the resulting lightweight reference-only file. Model inference remains a separate
 explicit action.

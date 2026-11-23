@@ -1,9 +1,9 @@
 """Step 2 EuroSpeech parquet export.
 
 The exam artifact is intentionally prepared outside the baseline notebook: this
-module streams one official EuroSpeech split, validates the selected audio,
-embeds normalized 16 kHz WAV bytes in a single parquet file, and verifies that
-the saved artifact can be reloaded. It performs no model inference and no NER.
+module streams one official EuroSpeech split, validates selected source audio,
+and writes lightweight audio references plus transcripts to one parquet file.
+It performs no model inference and no NER.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from .selection import select_by_duration
 
 DELIVERABLE_COLUMNS = [
     "sample_id",
-    "audio",
+    "audio_ref",
     "text",
     "duration_seconds",
     "speaker_id",
@@ -59,7 +59,7 @@ class DeliverableReport:
     target_rows: int
     candidates_scanned: int
     eligible_before_audio_validation: int
-    dropped_unreadable_during_wav_export: int
+    dropped_unreadable_during_audio_validation: int
     rows: int
     audio_hours: float
     source_split: str
@@ -98,7 +98,6 @@ class BilingualDeliverableReport:
 @dataclass
 class _PreparedRecord:
     record: AudioRecord
-    wav_bytes: bytes
     duration_seconds: float
 
 
@@ -109,7 +108,7 @@ class _PreparedLanguage:
     source_split: str
     candidates_scanned: int
     eligible_before_audio_validation: int
-    dropped_unreadable_during_wav_export: int
+    dropped_unreadable_during_audio_validation: int
     selection: dict[str, Any]
 
 
@@ -135,7 +134,7 @@ def _duration_bin_index(duration_seconds: float) -> int:
 
 
 def _validate_wav_bytes(payload: bytes) -> float:
-    """Return a WAV duration after checking embedded bytes are readable at 16 kHz."""
+    """Return a duration after checking normalized 16 kHz WAV bytes are readable."""
     if not payload:
         raise DeliverableValidationError("WAV payload is empty")
     info = sf.info(io.BytesIO(payload))
@@ -149,7 +148,8 @@ def _validate_wav_bytes(payload: bytes) -> float:
     return info.frames / info.samplerate
 
 
-def _to_embedded_wav(record: AudioRecord) -> _PreparedRecord:
+def _validate_source_audio(record: AudioRecord) -> _PreparedRecord:
+    """Decode, normalize, and reopen source audio without retaining its bytes."""
     if record.audio_array is None:
         waveform = load_audio(record.audio_ref)
     else:
@@ -161,7 +161,7 @@ def _to_embedded_wav(record: AudioRecord) -> _PreparedRecord:
     sf.write(buffer, waveform, TARGET_SR, format="WAV", subtype="PCM_16")
     payload = buffer.getvalue()
     duration = _validate_wav_bytes(payload)
-    return _PreparedRecord(record=record, wav_bytes=payload, duration_seconds=duration)
+    return _PreparedRecord(record=record, duration_seconds=duration)
 
 
 def _mixed_duration_sample(records: list[_PreparedRecord], target_rows: int) -> list[_PreparedRecord]:
@@ -201,13 +201,13 @@ def _entity_like(text: str) -> bool:
 
 
 def _rows_to_dataset(rows: list[dict[str, Any]]):
-    """Create an HF Dataset whose audio column is embedded 16 kHz WAV bytes."""
-    from datasets import Audio, Dataset, Features, Value
+    """Create a lightweight HF Dataset with a stable source-audio reference."""
+    from datasets import Dataset, Features, Value
 
     features = Features(
         {
             "sample_id": Value("string"),
-            "audio": Audio(sampling_rate=TARGET_SR, decode=False),
+            "audio_ref": Value("string"),
             "text": Value("string"),
             "duration_seconds": Value("float32"),
             "speaker_id": Value("string"),
@@ -225,13 +225,12 @@ def reload_and_validate_parquet(
     expected_rows: int | None = None,
     expected_language_counts: Mapping[str, int] | None = None,
 ):
-    """Reload an artifact through ``datasets.load_dataset`` and validate a playable sample.
+    """Reload the lightweight parquet and validate its schema and references.
 
-    All source items are decoded before writing. This reload check additionally
-    verifies the final parquet schema, embedded audio representation, and one
-    16 kHz WAV sample after serialization.
+    Source audio is decoded and WAV-validated before writing. The parquet keeps
+    only the source reference, so it is intentionally not an audio player.
     """
-    from datasets import Audio, load_dataset
+    from datasets import load_dataset
 
     artifact = Path(path)
     dataset = load_dataset("parquet", data_files={"train": str(artifact)}, split="train")
@@ -259,20 +258,17 @@ def reload_and_validate_parquet(
         raise DeliverableValidationError("Reloaded parquet has duplicate sample_id values")
     if any(not str(text or "").strip() for text in dataset["text"]):
         raise DeliverableValidationError("Reloaded parquet contains an empty transcript")
+    if any(not str(audio_ref or "").strip() for audio_ref in dataset["audio_ref"]):
+        raise DeliverableValidationError("Reloaded parquet contains an empty audio reference")
     if any(not (MIN_DURATION_S <= float(value) <= MAX_DURATION_S) for value in dataset["duration_seconds"]):
         raise DeliverableValidationError("Reloaded parquet contains audio outside the 2-20 s window")
-    dataset = dataset.cast_column("audio", Audio(sampling_rate=TARGET_SR, decode=False))
-    sample_audio = dataset[0]["audio"]
-    if not isinstance(sample_audio, dict) or not sample_audio.get("bytes"):
-        raise DeliverableValidationError("Reloaded parquet does not contain embedded audio bytes")
-    _validate_wav_bytes(sample_audio["bytes"])
     return dataset
 
 
-def sample_audio_bytes(path: str | Path) -> bytes:
-    """Return a reload-validated WAV payload for an optional notebook player."""
+def sample_audio_reference(path: str | Path) -> str:
+    """Return one reload-validated source reference from the lightweight artifact."""
     dataset = reload_and_validate_parquet(path)
-    return dataset[0]["audio"]["bytes"]
+    return dataset[0]["audio_ref"]
 
 
 def _validate_export_request(*, candidate_limit: int, target_rows: int, minimum_rows: int) -> None:
@@ -312,7 +308,7 @@ def _prepare_language(
     unreadable = 0
     for record in candidates:
         try:
-            item = _to_embedded_wav(record)
+            item = _validate_source_audio(record)
         except (OSError, RuntimeError, TypeError, ValueError, DeliverableValidationError):
             unreadable += 1
             continue
@@ -345,7 +341,7 @@ def _prepare_language(
         source_split=source_split,
         candidates_scanned=selection.candidates_scanned,
         eligible_before_audio_validation=selection.eligible,
-        dropped_unreadable_during_wav_export=unreadable,
+        dropped_unreadable_during_audio_validation=unreadable,
         selection=selection.to_dict(),
     )
 
@@ -382,7 +378,7 @@ def _language_report(prepared: _PreparedLanguage) -> dict[str, Any]:
         "source_split": prepared.source_split,
         "candidates_scanned": prepared.candidates_scanned,
         "eligible_before_audio_validation": prepared.eligible_before_audio_validation,
-        "dropped_unreadable_during_wav_export": prepared.dropped_unreadable_during_wav_export,
+        "dropped_unreadable_during_audio_validation": prepared.dropped_unreadable_during_audio_validation,
         "selection": prepared.selection,
         **_duration_statistics(prepared.selected),
     }
@@ -397,7 +393,7 @@ def _rows_from_prepared(
         rows.append(
             {
                 "sample_id": source_id,
-                "audio": {"bytes": item.wav_bytes, "path": None},
+                "audio_ref": item.record.audio_ref,
                 "text": item.record.reference_text,
                 "duration_seconds": float(item.duration_seconds),
                 "speaker_id": item.record.speaker_id,
@@ -486,7 +482,7 @@ def export_step2_eurospeech(
         target_rows=target_rows,
         candidates_scanned=prepared.candidates_scanned,
         eligible_before_audio_validation=prepared.eligible_before_audio_validation,
-        dropped_unreadable_during_wav_export=prepared.dropped_unreadable_during_wav_export,
+        dropped_unreadable_during_audio_validation=prepared.dropped_unreadable_during_audio_validation,
         rows=stats["rows"],
         audio_hours=stats["audio_hours"],
         source_split=prepared.source_split,

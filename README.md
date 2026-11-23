@@ -35,7 +35,7 @@ the current pipeline.
 
 ## Required Step 2 parquet artifact
 
-The exam artifact is one embedded-audio bilingual parquet file:
+The exam artifact is one lightweight bilingual parquet file:
 
 ```text
 data/deliverable/step2_eurospeech_en_de.parquet
@@ -49,21 +49,22 @@ either language cannot supply its required 1,000 valid rows. Each output row
 has exactly:
 
 ```text
-sample_id, audio, text, duration_seconds, speaker_id, source_split, language
+sample_id, audio_ref, text, duration_seconds, speaker_id, source_split, language
 ```
 
 Both EuroSpeech configuration files make the fixed quota explicit:
 `candidate_limit_per_language: 1200`, `rows_per_language: 1000`, and
 `total_rows: 2000`.
 
-`audio` is embedded 16 kHz mono PCM WAV data represented through
-`datasets.Audio`. EuroSpeech does not publish a speaker identity for these
-rows; `video_id` is a parliamentary session rather than a speaker, so
-`speaker_id` is null. The exporter reopens the parquet using
-`datasets.load_dataset("parquet", ...)`, validates a sample WAV, and prints the
-row count, hours, duration statistics, duration-bin counts, and a clearly
-labelled entity-like proxy. It does not run NER: EuroSpeech has no entity
-annotations, and the proxy is not a ground-truth entity rate.
+`audio_ref` is a stable EuroSpeech source reference, not embedded waveform
+bytes. Audio is decoded, converted to mono 16 kHz WAV, and checked before a
+row is accepted, but the resulting WAV is not stored in the parquet. EuroSpeech
+does not publish a speaker identity for these rows; `video_id` is a
+parliamentary session rather than a speaker, so `speaker_id` is null. The
+exporter reloads the parquet using `datasets.load_dataset("parquet", ...)` and
+prints the row count, hours, duration statistics, duration-bin counts, and a
+clearly labelled entity-like proxy. It does not run NER: EuroSpeech has no
+entity annotations, and the proxy is not a ground-truth entity rate.
 
 The commands below explicitly download dataset data. They are intentionally not
 run automatically by tests or the notebook.
@@ -72,9 +73,10 @@ run automatically by tests or the notebook.
 python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml --config-de config/eurospeech_de.yaml
 ```
 
-Use `--overwrite-deliverable` only when deliberately replacing an existing
-artifact. See [the delivery note](docs/step2_deliverable.md) for the validation
-rules and an optional notebook audio player.
+Use `--overwrite-deliverable` to deliberately replace an existing artifact—for
+example, to regenerate an older embedded-audio parquet in the current compact
+reference-only format. See [the delivery note](docs/step2_deliverable.md) for
+the validation rules.
 
 ## Baseline evaluation
 

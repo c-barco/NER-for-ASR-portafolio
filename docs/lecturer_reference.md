@@ -9,10 +9,10 @@ exports—but uses the fixed dataset and model selected for this project.
 | Dataset | EuroSpeech `uk` (EN) and `germany` (DE), official `test` split only |
 | Model | `ibm-granite/granite-4.0-1b-speech` |
 | Model API | `AutoProcessor` + `AutoModelForSpeechSeq2Seq` |
-| Audio | mono 16 kHz PCM WAV for cached/exported data |
+| Audio | source audio is normalized and validated as mono 16 kHz WAV; parquet stores `audio_ref` only |
 | Baseline prompt | Granite's documented transcription request with `prompt=None` |
 | Metrics | normalised per-recording and corpus WER/CER |
-| Submission data | one validated bilingual embedded-audio parquet: 1,000 EN + 1,000 DE rows |
+| Submission data | one validated bilingual reference-only parquet: 1,000 EN + 1,000 DE rows |
 
 The Granite implementation follows the current model-card generation example:
 it applies the tokenizer chat template to

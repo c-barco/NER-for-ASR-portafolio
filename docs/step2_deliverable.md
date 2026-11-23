@@ -12,13 +12,14 @@ It contains exactly 2,000 rows: 1,000 English (`en`) records and 1,000 German
 (`de`) records. The `language` column makes the source language explicit for
 every row.
 
-The artifact is a dataset for ASR, so every row contains speech and its
-reference transcript rather than image/question/answer data. Its columns are:
+The artifact is a dataset for ASR, so every row identifies a source recording
+and carries its reference transcript rather than image/question/answer data.
+Its columns are:
 
 | Column | Meaning |
 |---|---|
 | `sample_id` | EuroSpeech `key`, stable within the source configuration |
-| `audio` | embedded 16 kHz mono PCM WAV bytes (`datasets.Audio`) |
+| `audio_ref` | stable EuroSpeech source reference; no waveform bytes are stored |
 | `text` | `human_transcript` reference |
 | `duration_seconds` | duration measured from the normalized WAV |
 | `speaker_id` | null; EuroSpeech does not publish a speaker identifier |
@@ -45,10 +46,13 @@ fails loudly if a source key would be duplicated across the two language
 selections; it never silently changes an identifier.
 
 Source audio is decoded before acceptance; unreadable source rows are discarded.
-Each retained waveform is converted to mono 16 kHz PCM WAV, reopened with `soundfile`, stored as embedded bytes,
-written to a temporary parquet, and reloaded with
+Each retained waveform is converted to mono 16 kHz PCM WAV and reopened with
+`soundfile` before export. The parquet deliberately stores only `audio_ref`,
+not the WAV bytes. It is written to a temporary file and reloaded with
 `datasets.load_dataset("parquet", ...)` before it becomes the final artifact.
-The reload check requires embedded bytes and validates a sample WAV again.
+The reload check verifies the schema, row counts, language balance, references,
+transcripts, and durations. Audio playback is not available from this compact
+artifact.
 
 EuroSpeech has no named-entity labels. The printed report therefore includes an
 **entity-like** share based only on a capitalized multi-token text pattern. This
@@ -66,8 +70,9 @@ python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml
 ```
 
 The command refuses to overwrite an existing file. Add
-`--overwrite-deliverable` only after confirming replacement is intended.
+`--overwrite-deliverable` to replace an older artifact—for example, an earlier
+embedded-audio parquet—with the current compact reference-only format.
 
-For an optional audible notebook check after export, set
+For an optional structural notebook check after export, set
 `NER_ASR_EXPORT_DELIVERABLE=1` in `01_baseline_evaluation.ipynb`. The final
-cell reloads the parquet and displays one embedded WAV in a notebook player.
+cell reloads the parquet and prints its verified row and language counts.

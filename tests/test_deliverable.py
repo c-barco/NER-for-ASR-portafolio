@@ -13,6 +13,7 @@ from ner_asr.deliverable import (
     export_step2_eurospeech,
     export_step2_eurospeech_bilingual,
     reload_and_validate_parquet,
+    sample_audio_reference,
 )
 from ner_asr.records import AudioRecord
 
@@ -108,14 +109,16 @@ def test_small_parquet_roundtrip_when_datasets_is_available(tmp_path):
     reloaded = reload_and_validate_parquet(output, minimum_rows=3)
     assert reloaded.column_names == [
         "sample_id",
-        "audio",
+        "audio_ref",
         "text",
         "duration_seconds",
         "speaker_id",
         "source_split",
         "language",
     ]
-    assert reloaded[0]["audio"]["bytes"]
+    assert reloaded[0]["audio_ref"].startswith("memory-")
+    assert "audio" not in reloaded.column_names
+    assert sample_audio_reference(output).startswith("memory-")
 
 
 def test_bilingual_parquet_roundtrip_is_balanced_when_datasets_is_available(tmp_path):
@@ -143,3 +146,4 @@ def test_bilingual_parquet_roundtrip_is_balanced_when_datasets_is_available(tmp_
     )
     assert set(reloaded["language"]) == {"en", "de"}
     assert len(set(reloaded["sample_id"])) == 6
+    assert all(reference.startswith("memory-") for reference in reloaded["audio_ref"])

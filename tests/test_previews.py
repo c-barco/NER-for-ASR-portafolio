@@ -6,8 +6,9 @@ from ner_asr.transcribe import Granite4ASRTranscriber, TranscriptionResult
 def test_dataset_preview_matches_the_export_schema():
     row = example_deliverable_row(language="de", source_split="test")
     assert list(row) == DELIVERABLE_COLUMNS
-    assert row["audio"]["path"] is None
-    assert "16 kHz" in row["audio"]["bytes"]
+    assert row["audio_ref"].startswith("hf://disco-eth/EuroSpeech@")
+    assert ":test:" in row["audio_ref"]
+    assert "audio" not in row
     assert row["language"] == "de" and row["source_split"] == "test"
 
 

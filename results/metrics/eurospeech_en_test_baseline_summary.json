@@ -1,0 +1,89 @@
+{
+  "normalization": "v1-lecturer-based",
+  "n_selected": 250,
+  "n_success": 250,
+  "n_failed": 0,
+  "n_scored": 250,
+  "n_empty_reference": 0,
+  "selected_audio_hours": 1.0452131597222223,
+  "evaluated_audio_hours": 1.0452131597222223,
+  "corpus_wer": 0.2687176094387474,
+  "corpus_cer": 0.18127003510914363,
+  "corpus_wer_failures_as_deletions": 0.2687176094387474,
+  "per_recording_wer_mean": 0.30483168160699653,
+  "per_recording_wer_median": 0.2423112767940354,
+  "per_recording_wer_min": 0.0,
+  "per_recording_wer_max": 5.571428571428571,
+  "per_recording_cer_mean": 0.22247070735808466,
+  "per_recording_cer_median": 0.15667314020607434,
+  "per_recording_cer_min": 0.0,
+  "per_recording_cer_max": 7.1,
+  "per_recording_wer_cer_describe": {
+    "count": {
+      "wer": 250,
+      "cer": 250
+    },
+    "mean": {
+      "wer": 0.30483168160699653,
+      "cer": 0.22247070735808466
+    },
+    "std": {
+      "wer": 0.47250514047468223,
+      "cer": 0.5219936813106592
+    },
+    "min": {
+      "wer": 0.0,
+      "cer": 0.0
+    },
+    "25%": {
+      "wer": 0.15819377990430622,
+      "cer": 0.09580838323353294
+    },
+    "50%": {
+      "wer": 0.2423112767940354,
+      "cer": 0.15667314020607434
+    },
+    "75%": {
+      "wer": 0.36272727272727273,
+      "cer": 0.2577132915650492
+    },
+    "max": {
+      "wer": 5.571428571428571,
+      "cer": 7.1
+    }
+  },
+  "perfect_transcription_rate": 0.008,
+  "lecturer_style_mean_wer_unnormalized": 0.4741280095520396,
+  "total_inference_runtime_s": 352.87767621455714,
+  "real_time_factor": 0.09378142230080251,
+  "flags": {
+    "hit_token_limit": 0,
+    "empty_prediction": 0,
+    "short_vs_reference": 0,
+    "wer_above_1": 2
+  },
+  "failure_reasons": {},
+  "run_info": {
+    "run_name": "eurospeech_en_test_baseline",
+    "mode": "pilot",
+    "condition": "baseline_no_context",
+    "model_name": "ibm-granite/granite-4.0-1b-speech",
+    "model_revision": "bd87ab862416353633ea431fe49b1614003623c5",
+    "language": "en",
+    "max_new_tokens": 200,
+    "batch_size": 1,
+    "dataset": "eurospeech_en",
+    "dataset_revision": "7a55bbcee3933f5d9817bb2d4c37399d596f543d",
+    "split": "test",
+    "environment": {
+      "python": "3.12.14",
+      "platform": "Linux-6.8.0-149-generic-x86_64-with-glibc2.39",
+      "torch": "2.15.0",
+      "transformers": "5.23.0",
+      "accelerate": "1.15.0",
+      "jiwer": "4.0.0",
+      "soundfile": "0.14.0",
+      "soxr": "1.1.0"
+    }
+  }
+}
