@@ -9,7 +9,11 @@ import soundfile as sf
 
 from ner_asr import adapters
 from ner_asr.config import DatasetConfig, SelectionConfig
-from ner_asr.deliverable import export_step2_eurospeech, reload_and_validate_parquet
+from ner_asr.deliverable import (
+    export_step2_eurospeech,
+    export_step2_eurospeech_bilingual,
+    reload_and_validate_parquet,
+)
 from ner_asr.records import AudioRecord
 
 
@@ -33,6 +37,14 @@ def _records():
             )
         )
     return values
+
+
+def _records_for_language(language: str):
+    records = _records()
+    for record in records:
+        record.sample_id = f"{language}-{record.sample_id}"
+        record.dataset = f"eurospeech_{language}"
+    return records
 
 
 def test_eurospeech_adapter_maps_the_common_record_contract(monkeypatch):
@@ -104,3 +116,30 @@ def test_small_parquet_roundtrip_when_datasets_is_available(tmp_path):
         "language",
     ]
     assert reloaded[0]["audio"]["bytes"]
+
+
+def test_bilingual_parquet_roundtrip_is_balanced_when_datasets_is_available(tmp_path):
+    try:
+        import datasets  # noqa: F401
+    except Exception as exc:  # local Smart App Control can block pyarrow.compute
+        pytest.skip(f"datasets is unavailable in this environment: {exc}")
+
+    output = Path(tmp_path) / "step2_eurospeech_en_de.parquet"
+    artifact, report = export_step2_eurospeech_bilingual(
+        {"en": _records_for_language("en"), "de": _records_for_language("de")},
+        output_path=output,
+        seed=42,
+        candidate_limit_per_language=6,
+        rows_per_language=3,
+        minimum_rows_per_language=3,
+    )
+    assert artifact == output
+    assert report.rows == 6 and report.rows_by_language == {"en": 3, "de": 3}
+    reloaded = reload_and_validate_parquet(
+        output,
+        minimum_rows=6,
+        expected_rows=6,
+        expected_language_counts={"en": 3, "de": 3},
+    )
+    assert set(reloaded["language"]) == {"en", "de"}
+    assert len(set(reloaded["sample_id"])) == 6

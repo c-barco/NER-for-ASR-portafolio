@@ -25,6 +25,15 @@ def test_full_mode_requires_explicit_duration():
         load_config("config/eurospeech_en.yaml", mode="full")
 
 
+def test_bilingual_deliverable_quotas_are_explicit_and_match():
+    en_cfg = load_config("config/eurospeech_en.yaml")
+    de_cfg = load_config("config/eurospeech_de.yaml")
+    assert en_cfg.deliverable == de_cfg.deliverable
+    assert en_cfg.deliverable.candidate_limit_per_language == 1_200
+    assert en_cfg.deliverable.rows_per_language == 1_000
+    assert en_cfg.deliverable.total_rows == 2_000
+
+
 class FakeGranite:
     def transcribe_batch(self, paths, prompt=None):
         assert prompt is None  # baseline: no context

@@ -12,7 +12,7 @@ exports—but uses the fixed dataset and model selected for this project.
 | Audio | mono 16 kHz PCM WAV for cached/exported data |
 | Baseline prompt | Granite's documented transcription request with `prompt=None` |
 | Metrics | normalised per-recording and corpus WER/CER |
-| Submission data | one validated embedded-audio parquet per language |
+| Submission data | one validated bilingual embedded-audio parquet: 1,000 EN + 1,000 DE rows |
 
 The Granite implementation follows the current model-card generation example:
 it applies the tokenizer chat template to

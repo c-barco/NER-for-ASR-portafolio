@@ -2,12 +2,15 @@
 
 ## Artifact
 
-The exporter creates exactly one parquet file for each requested language:
+The exporter creates exactly one combined bilingual parquet file:
 
 ```text
-data/deliverable/step2_eurospeech_en.parquet
-data/deliverable/step2_eurospeech_de.parquet
+data/deliverable/step2_eurospeech_en_de.parquet
 ```
+
+It contains exactly 2,000 rows: 1,000 English (`en`) records and 1,000 German
+(`de`) records. The `language` column makes the source language explicit for
+every row.
 
 The artifact is a dataset for ASR, so every row contains speech and its
 reference transcript rather than image/question/answer data. Its columns are:
@@ -24,12 +27,22 @@ reference transcript rather than image/question/answer data. Its columns are:
 
 ## Preparation rule
 
-The command streams a deterministic window of 1,200 candidate records from one
-official split. It sorts by ID, shuffles with the config seed (`42`), retains
-only non-empty 2–20 second items, and selects up to 1,100 examples while
-representing every populated duration stratum (2–5, 5–10, 10–15, 15–20 s).
-It raises an error if fewer than 1,000 valid rows remain or if records from
-different source splits would be mixed.
+The command independently streams a deterministic window of 1,200 candidate
+records for each language from its official `test` split. It sorts by ID,
+shuffles with the fixed config seed (`42`), retains only non-empty 2–20 second
+items, and selects exactly 1,000 examples per language while representing every
+populated duration stratum (2–5, 5–10, 10–15, 15–20 s). It raises an error if
+either language has fewer than 1,000 valid rows or if records from different
+source splits would be mixed within a language.
+
+Both `config/eurospeech_en.yaml` and `config/eurospeech_de.yaml` record the
+same fixed quota explicitly: `candidate_limit_per_language: 1200`,
+`rows_per_language: 1000`, and `total_rows: 2000`. The pipeline refuses
+mismatched language configurations.
+
+The combined artifact retains the original EuroSpeech `key` in `sample_id` and
+fails loudly if a source key would be duplicated across the two language
+selections; it never silently changes an identifier.
 
 Source audio is decoded before acceptance; unreadable source rows are discarded.
 Each retained waveform is converted to mono 16 kHz PCM WAV, reopened with `soundfile`, stored as embedded bytes,
@@ -48,8 +61,8 @@ capitalization. No Step 3–8 processing is performed.
 These commands download dataset data but do not run model inference:
 
 ```bash
-python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml
-python -m ner_asr.pipeline export-deliverable --config config/eurospeech_de.yaml
+python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml \
+  --config-de config/eurospeech_de.yaml
 ```
 
 The command refuses to overwrite an existing file. Add

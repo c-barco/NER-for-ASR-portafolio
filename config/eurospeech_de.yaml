@@ -1,4 +1,4 @@
-# Selected Step 2 dataset: EuroSpeech German (Germany configuration).
+# dataset: EuroSpeech German.
 # The official test split is held out from EuroSpeech train/validation and is
 # used alone for baseline evaluation and the one-file exam deliverable.
 run_name: eurospeech_de_test_baseline
@@ -14,7 +14,7 @@ dataset:
     config_name: germany
     text_field: human_transcript
 selection:
-  # Set this explicitly only when scheduling a full baseline evaluation.
+  # for scheduling a full baseline evaluation.
   target_hours: null
   pilot_target_hours: 0.02
   pilot_max_items: 5
@@ -31,4 +31,9 @@ model:
   language: de              # run metadata; Granite's documented prompt auto-handles language
   max_new_tokens: 200       # official Granite 4 Speech example
   batch_size: 1
+deliverable:
+  # One bilingual Step 2 parquet is built from these fixed per-language quotas.
+  candidate_limit_per_language: 1200
+  rows_per_language: 1000
+  total_rows: 2000
 output_dir: results

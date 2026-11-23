@@ -2,6 +2,7 @@
 
 import csv
 import json
+import math
 from types import SimpleNamespace
 
 from ner_asr.adapters import iter_records
@@ -114,4 +115,13 @@ def test_evaluation_export_counts_failures(kaldi_fixture, tmp_path):
                 "wer", "cer", "status", "error_message", "wav_path", "label",
                 "pred_without_context", "wer_without_context", "cer_without_context"]:
         assert col in header
+    with open(paths["per_recording_tsv"], encoding="utf-8", newline="") as f:
+        tsv_rows = list(csv.DictReader(f, delimiter="\t"))
+    assert len(tsv_rows) == len(rows)  # failed/unscored recordings are retained
+    tsv_wers = [float(row["wer"]) for row in tsv_rows if row["wer"]]
+    assert tsv_wers == sorted(tsv_wers, reverse=True)
+    assert tsv_rows[-1]["status"] == "error"  # NaN WER is ordered after finite WER
+    describe = summary["per_recording_wer_cer_describe"]
+    assert describe["count"]["wer"] == summary["n_scored"]
+    assert math.isclose(describe["mean"]["wer"], summary["per_recording_wer_mean"])
     json.loads(paths["summary_json"].read_text(encoding="utf-8"))

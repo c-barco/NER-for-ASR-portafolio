@@ -37,10 +37,12 @@ speech-recognition truth independent of the corpus annotations.
 
 ## Split discipline
 
-The export and baseline each consume one official split. The selected configs
-use `test`; they never top up from `train` or `validation`. The code checks that
-a selected set contains only one `source_split`. This preserves train/dev/test
-separation for any later, separately authorised training experiment.
+The bilingual export consumes the official `test` split independently for both
+languages. It never tops up from `train` or `validation`; the combined parquet
+contains exactly 1,000 `en` and 1,000 `de` rows, each labelled in `language`.
+The code checks that a selected language set contains only one `source_split`.
+This preserves train/dev/test separation for any later, separately authorised
+training experiment.
 
 ## Provenance and sources
 

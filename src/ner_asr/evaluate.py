@@ -2,7 +2,8 @@
 
 Output columns include the lab_06 names for the no-context condition
 (`wav_path`, `label`, `pred_without_context`, `wer_without_context`,
-`cer_without_context`) so the later with-context run can be merged on `wav_path`.
+`cer_without_context`). No context-conditioned run is part of this project
+scope.
 Raw reference and prediction texts are kept unchanged next to their normalised forms.
 """
 
@@ -132,6 +133,9 @@ def summarize(rows: list[dict], *, run_info: dict | None = None) -> dict:
         "corpus_wer_failures_as_deletions": corpus_scores(with_failures)["corpus_wer"],
         **describe([r["wer"] for r in scored], "per_recording_wer"),
         **describe([r["cer"] for r in scored], "per_recording_cer"),
+        # Equivalent in content to ``results[["wer", "cer"]].describe()``
+        # without making pandas a runtime requirement for the pipeline.
+        "per_recording_wer_cer_describe": describe_wer_cer(rows),
         "perfect_transcription_rate": (sum(1 for r in scored if r["wer"] == 0) / len(scored)) if scored else math.nan,
         "lecturer_style_mean_wer_unnormalized": (sum(lecturer_style) / len(lecturer_style)) if lecturer_style else math.nan,
         "total_inference_runtime_s": sum(runtimes),
@@ -156,18 +160,105 @@ def _count(values: list) -> dict:
     return out
 
 
+def _scored_values(rows: list[dict], column: str) -> list[float]:
+    values = []
+    for row in rows:
+        value = row.get(column)
+        if isinstance(value, (int, float)) and math.isfinite(value):
+            values.append(float(value))
+    return values
+
+
+def _percentile(values: list[float], fraction: float) -> float:
+    """Linear-interpolated percentile, matching the usual DataFrame default."""
+    if not values:
+        return math.nan
+    if len(values) == 1:
+        return values[0]
+    position = (len(values) - 1) * fraction
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return values[lower]
+    return values[lower] + (values[upper] - values[lower]) * (position - lower)
+
+
+def _describe_values(values: list[float]) -> dict[str, float | int]:
+    ordered = sorted(values)
+    count = len(ordered)
+    if not ordered:
+        return {
+            "count": 0,
+            "mean": math.nan,
+            "std": math.nan,
+            "min": math.nan,
+            "25%": math.nan,
+            "50%": math.nan,
+            "75%": math.nan,
+            "max": math.nan,
+        }
+    mean = sum(ordered) / count
+    sample_std = math.sqrt(sum((value - mean) ** 2 for value in ordered) / (count - 1)) if count > 1 else math.nan
+    return {
+        "count": count,
+        "mean": mean,
+        "std": sample_std,
+        "min": ordered[0],
+        "25%": _percentile(ordered, 0.25),
+        "50%": _percentile(ordered, 0.50),
+        "75%": _percentile(ordered, 0.75),
+        "max": ordered[-1],
+    }
+
+
+def describe_wer_cer(rows: list[dict]) -> dict[str, dict[str, float | int]]:
+    """Return the same fields as ``results[["wer", "cer"]].describe()``."""
+    by_metric = {metric: _describe_values(_scored_values(rows, metric)) for metric in ("wer", "cer")}
+    return {
+        statistic: {metric: by_metric[metric][statistic] for metric in ("wer", "cer")}
+        for statistic in ("count", "mean", "std", "min", "25%", "50%", "75%", "max")
+    }
+
+
+def _wer_descending_key(row: dict) -> tuple[int, float]:
+    value = row.get("wer")
+    if not isinstance(value, (int, float)) or not math.isfinite(value):
+        # Keep failed/unscored rows in the output, after scored recordings.
+        return (1, 0.0)
+    return (0, -float(value))
+
+
+def _table_value(value):
+    return "" if value is None or (isinstance(value, float) and math.isnan(value)) else value
+
+
+def _write_result_table(path: Path, rows: list[dict], *, delimiter: str) -> None:
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction="ignore", delimiter=delimiter)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    key: _table_value(row.get(key))
+                    for key in RESULT_COLUMNS
+                }
+            )
+
+
 def export(rows: list[dict], summary: dict, out_dir: Path, run_name: str) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / f"{run_name}_per_recording.csv"
-    with open(csv_path, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction="ignore")
-        w.writeheader()
-        for r in rows:
-            w.writerow({k: ("" if (isinstance(v, float) and math.isnan(v)) or v is None else v) for k, v in r.items() if k in RESULT_COLUMNS})
+    _write_result_table(csv_path, rows, delimiter=",")
+    tsv_path = out_dir / f"{run_name}_results_without_context.tsv"
+    _write_result_table(tsv_path, sorted(rows, key=_wer_descending_key), delimiter="\t")
     json_path = out_dir / f"{run_name}_summary.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(_nan_to_none(summary), f, indent=2)
-    return {"per_recording_csv": csv_path, "summary_json": json_path}
+    return {
+        "per_recording_csv": csv_path,
+        "per_recording_tsv": tsv_path,
+        "summary_json": json_path,
+    }
 
 
 def _nan_to_none(obj):

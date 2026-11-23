@@ -1,4 +1,4 @@
-"""Create tests/fixtures/kaldi_test (SYNTHETIC FIXTURE) for config/pilot_fixture.yaml."""
+"""Create tests/fixtures/kaldi_test (SYNTHETIC FIXTURE) for config/pilot_fixture.yaml. Only format"""
 
 from pathlib import Path
 

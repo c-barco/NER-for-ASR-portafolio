@@ -55,12 +55,22 @@ class ModelConfig:
 
 
 @dataclass
+class DeliverableConfig:
+    """Fixed-size settings for the bilingual Step 2 exam artifact."""
+
+    candidate_limit_per_language: int = 1_200
+    rows_per_language: int = 1_000
+    total_rows: int = 2_000
+
+
+@dataclass
 class RunConfig:
     run_name: str
     mode: str  # pilot | full
     dataset: DatasetConfig
     selection: SelectionConfig
     model: ModelConfig
+    deliverable: DeliverableConfig = field(default_factory=DeliverableConfig)
     output_dir: str = "results"
     audio_cache_dir: str = "data/audio_cache"
     manifest_dir: str = "data/manifests"
@@ -106,6 +116,7 @@ def load_config(path: str | Path, **overrides: Any) -> RunConfig:
         dataset=DatasetConfig(**raw["dataset"]),
         selection=SelectionConfig(**raw.get("selection", {})),
         model=ModelConfig(**raw.get("model", {})),
+        deliverable=DeliverableConfig(**raw.get("deliverable", {})),
         output_dir=raw.get("output_dir", "results"),
         audio_cache_dir=raw.get("audio_cache_dir", "data/audio_cache"),
         manifest_dir=raw.get("manifest_dir", "data/manifests"),
@@ -116,5 +127,17 @@ def load_config(path: str | Path, **overrides: Any) -> RunConfig:
     if cfg.mode == "full" and cfg.selection.target_hours is None:
         raise ValueError(
             "Full mode needs selection.target_hours; set an explicit evaluation-duration target."
+        )
+    if cfg.deliverable.candidate_limit_per_language < cfg.deliverable.rows_per_language:
+        raise ValueError(
+            "deliverable.candidate_limit_per_language must be at least "
+            "deliverable.rows_per_language."
+        )
+    if cfg.deliverable.rows_per_language <= 0:
+        raise ValueError("deliverable.rows_per_language must be positive.")
+    if cfg.deliverable.total_rows != 2 * cfg.deliverable.rows_per_language:
+        raise ValueError(
+            "deliverable.total_rows must equal twice deliverable.rows_per_language "
+            "for the EN/DE artifact."
         )
     return cfg

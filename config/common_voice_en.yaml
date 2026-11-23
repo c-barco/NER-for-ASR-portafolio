@@ -1,7 +1,5 @@
-# Legacy alternative - Mozilla Common Voice English (not the selected dataset; untested).
-# Requires a manual download from Mozilla Data Collective (account + terms). The full
-# English scripted-speech release is ~88 GB: do not download it for a pilot. Prefer the
-# lecturer's cluster copy (cv19, Kaldi format) via config/cluster_kaldi.yaml.
+# Legacy alternative - Mozilla Common Voice English 
+# Requires a manual download
 run_name: common_voice_en_test_baseline
 mode: pilot
 context_mode: none

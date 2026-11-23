@@ -3,7 +3,7 @@
     python -m ner_asr.pipeline select    --config config/baseline_pilot.yaml
     python -m ner_asr.pipeline transcribe --config config/baseline_pilot.yaml
     python -m ner_asr.pipeline evaluate  --config config/baseline_pilot.yaml
-    python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml
+    python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml --config-de config/eurospeech_de.yaml
     python -m ner_asr.pipeline all       --config config/baseline_pilot.yaml [--mode full]
 """
 
@@ -16,16 +16,14 @@ from pathlib import Path
 from .adapters import iter_records
 from .config import RunConfig, load_config, resolve
 from .deliverable import (
-    DEFAULT_CANDIDATE_LIMIT,
-    DEFAULT_TARGET_ROWS,
     MINIMUM_ROWS,
-    export_step2_eurospeech,
+    export_step2_eurospeech_bilingual,
 )
 from .evaluate import build_results, export, summarize
 from .runner import environment_info, run_transcription
 from .selection import cache_audio, read_manifest, select_by_duration, write_manifest
 
-
+# select a subset of the dataset for pilot or full evaluation, and write a manifest
 def step_select(cfg: RunConfig, *, overwrite: bool = False):
     path = cfg.manifest_path
     if path.exists() and not overwrite:
@@ -93,31 +91,58 @@ def step_evaluate(cfg: RunConfig) -> dict:
     rows = build_results(records, cfg.predictions_path)
     summary = summarize(rows, run_info={**run_info(cfg), "environment": environment_info()})
     paths = export(rows, summary, cfg.metrics_dir, cfg.run_name)
+    print("Mean WER:", summary["per_recording_wer_mean"])
+    print("Mean CER:", summary["per_recording_cer_mean"])
+    print("WER/CER descriptive statistics:")
+    print(json.dumps(summary["per_recording_wer_cer_describe"], indent=2, default=str))
     print(json.dumps({k: v for k, v in summary.items() if k != "run_info"}, indent=2, default=str))
     print({k: str(v) for k, v in paths.items()})
     return summary
 
 
+def _validate_bilingual_deliverable_configs(en_cfg: RunConfig, de_cfg: RunConfig) -> None:
+    """Keep the two independently selected held-out streams comparable."""
+    for expected_language, cfg in (("en", en_cfg), ("de", de_cfg)):
+        if cfg.dataset.adapter != "hf_eurospeech":
+            raise ValueError("The Step 2 parquet export is defined for dataset.adapter: hf_eurospeech.")
+        if cfg.dataset.language != expected_language:
+            raise ValueError(
+                f"Expected the {expected_language!r} EuroSpeech config, got language={cfg.dataset.language!r}."
+            )
+        if cfg.dataset.split != "test":
+            raise ValueError(
+                "The Step 2 deliverable must use each language's held-out EuroSpeech test split."
+            )
+        if cfg.deliverable.rows_per_language != MINIMUM_ROWS:
+            raise ValueError(
+                f"The fixed bilingual deliverable needs {MINIMUM_ROWS} rows per language, got "
+                f"{cfg.deliverable.rows_per_language} for {expected_language}."
+            )
+    if en_cfg.selection.seed != de_cfg.selection.seed:
+        raise ValueError("English and German deliverable configs must use the same fixed selection seed.")
+    if en_cfg.deliverable != de_cfg.deliverable:
+        raise ValueError("English and German deliverable configs must use identical deliverable quotas.")
+
+
 def step_export_deliverable(
-    cfg: RunConfig,
+    en_cfg: RunConfig,
+    de_cfg: RunConfig,
     *,
-    candidate_limit: int = DEFAULT_CANDIDATE_LIMIT,
-    target_rows: int = DEFAULT_TARGET_ROWS,
-    minimum_rows: int = MINIMUM_ROWS,
     overwrite: bool = False,
 ):
-    """Create the required one-file Step 2 EuroSpeech parquet artifact."""
-    if cfg.dataset.adapter != "hf_eurospeech":
-        raise ValueError("The Step 2 parquet export is defined for dataset.adapter: hf_eurospeech.")
-    output = resolve("data/deliverable") / f"step2_eurospeech_{cfg.dataset.language}.parquet"
-    artifact, report = export_step2_eurospeech(
-        iter_records(cfg.dataset, cfg.selection),
-        language=cfg.dataset.language,
+    """Create the required balanced, bilingual one-file Step 2 parquet artifact."""
+    _validate_bilingual_deliverable_configs(en_cfg, de_cfg)
+    output = resolve("data/deliverable") / "step2_eurospeech_en_de.parquet"
+    artifact, report = export_step2_eurospeech_bilingual(
+        {
+            "en": iter_records(en_cfg.dataset, en_cfg.selection),
+            "de": iter_records(de_cfg.dataset, de_cfg.selection),
+        },
         output_path=output,
-        seed=cfg.selection.seed,
-        candidate_limit=candidate_limit,
-        target_rows=target_rows,
-        minimum_rows=minimum_rows,
+        seed=en_cfg.selection.seed,
+        candidate_limit_per_language=en_cfg.deliverable.candidate_limit_per_language,
+        rows_per_language=en_cfg.deliverable.rows_per_language,
+        minimum_rows_per_language=MINIMUM_ROWS,
         overwrite=overwrite,
     )
     print(json.dumps(report.to_dict(), indent=2))
@@ -128,11 +153,10 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("step", choices=["select", "transcribe", "evaluate", "export-deliverable", "all"])
     ap.add_argument("--config", required=True)
+    ap.add_argument("--config-de", help="German EuroSpeech config; required for export-deliverable")
     ap.add_argument("--mode", choices=["pilot", "full"])
     ap.add_argument("--overwrite-manifest", action="store_true")
     ap.add_argument("--overwrite-deliverable", action="store_true")
-    ap.add_argument("--candidate-limit", type=int, default=DEFAULT_CANDIDATE_LIMIT)
-    ap.add_argument("--target-rows", type=int, default=DEFAULT_TARGET_ROWS)
     args = ap.parse_args(argv)
     overrides = {"mode": args.mode} if args.mode else {}
     cfg = load_config(args.config, **overrides)
@@ -145,11 +169,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.step in ("evaluate", "all"):
         step_evaluate(cfg)
     if args.step == "export-deliverable":
+        if not args.config_de:
+            ap.error("export-deliverable requires --config-de config/eurospeech_de.yaml")
+        de_cfg = load_config(args.config_de, **overrides)
         step_export_deliverable(
             cfg,
-            candidate_limit=args.candidate_limit,
-            target_rows=args.target_rows,
-            minimum_rows=MINIMUM_ROWS,
+            de_cfg,
             overwrite=args.overwrite_deliverable,
         )
 

@@ -35,21 +35,26 @@ the current pipeline.
 
 ## Required Step 2 parquet artifact
 
-The exam artifact is one embedded-audio parquet file per configured language:
+The exam artifact is one embedded-audio bilingual parquet file:
 
 ```text
-data/deliverable/step2_eurospeech_en.parquet
-data/deliverable/step2_eurospeech_de.parquet
+data/deliverable/step2_eurospeech_en_de.parquet
 ```
 
-The exporter streams about 1,200 candidates from one official split, applies a
-fixed seed, removes empty/unreadable entries, keeps only 2–20 second utterances,
-checks mixed duration strata, and refuses to write fewer than 1,000 rows. Each
-output row has exactly:
+It contains exactly 2,000 rows: 1,000 English (`en`) and 1,000 German (`de`).
+The exporter streams about 1,200 candidates **per language** from the official
+test split, applies fixed seeds, removes empty/unreadable entries, keeps only
+2–20 second utterances, and checks mixed duration strata. It fails loudly if
+either language cannot supply its required 1,000 valid rows. Each output row
+has exactly:
 
 ```text
 sample_id, audio, text, duration_seconds, speaker_id, source_split, language
 ```
+
+Both EuroSpeech configuration files make the fixed quota explicit:
+`candidate_limit_per_language: 1200`, `rows_per_language: 1000`, and
+`total_rows: 2000`.
 
 `audio` is embedded 16 kHz mono PCM WAV data represented through
 `datasets.Audio`. EuroSpeech does not publish a speaker identity for these
@@ -64,8 +69,7 @@ The commands below explicitly download dataset data. They are intentionally not
 run automatically by tests or the notebook.
 
 ```bash
-python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml
-python -m ner_asr.pipeline export-deliverable --config config/eurospeech_de.yaml
+python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml --config-de config/eurospeech_de.yaml
 ```
 
 Use `--overwrite-deliverable` only when deliberately replacing an existing
@@ -86,6 +90,11 @@ python -m ner_asr.pipeline transcribe --config config/eurospeech_en.yaml
 # WER/CER exports
 python -m ner_asr.pipeline evaluate --config config/eurospeech_en.yaml
 ```
+
+Evaluation prints mean WER/CER and descriptive statistics, then saves a
+WER-descending, tab-separated no-context result file at
+`results/metrics/<run_name>_results_without_context.tsv`. Its name deliberately
+does not imply a context-conditioned experiment.
 
 `all` runs those three baseline stages. A full evaluation additionally requires
 an explicit `selection.target_hours`; it is not guessed by the code. The
@@ -119,7 +128,7 @@ fixture tests and source checks do not download data or model weights.
 config/             selected EN/DE EuroSpeech configurations
 src/ner_asr/         adapters, selection, parquet export, Granite wrapper, metrics
 notebooks/           baseline orchestration and optional parquet preview
-data/deliverable/    generated exam parquet artifacts (git-ignored)
+data/deliverable/    generated bilingual exam parquet artifact (git-ignored)
 docs/                dataset decision, delivery method, scope and sources
 tests/               synthetic and no-network validation
 ```
