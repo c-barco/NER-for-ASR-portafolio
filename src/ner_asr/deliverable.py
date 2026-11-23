@@ -30,7 +30,6 @@ DELIVERABLE_COLUMNS = [
     "audio_ref",
     "text",
     "duration_seconds",
-    "speaker_id",
     "source_split",
     "language",
 ]
