@@ -1,12 +1,4 @@
-"""Granite 4 Speech transcription wrapper.
-
-This follows the official ``ibm-granite/granite-4.0-1b-speech`` model-card
-example: ``AutoProcessor`` + ``AutoModelForSpeechSeq2Seq``, the Granite chat
-template, and greedy generation. The documented no-context ASR request is used
-unchanged for the baseline. A non-empty ``prompt`` is interpreted only as a
-comma-separated keyword list and is appended using Granite's documented
-``Keywords: ...`` mechanism; Steps 3--8 do not call it.
-"""
+"""Granite 4 Speech transcription."""
 
 from __future__ import annotations
 
@@ -31,8 +23,7 @@ class Granite4ASRTranscriber:
 
     The model card documents one audio item per chat request. ``transcribe_batch``
     therefore preserves the public batch interface while processing paths in a
-    deterministic sequence. This is deliberately conservative until real-model
-    validation establishes a safe batched Granite request format.
+    deterministic sequence.
     """
 
     BASELINE_USER_PROMPT = "<|audio|>can you transcribe the speech into a written format?"

@@ -1,36 +1,32 @@
-# Granite 4 Speech pilot results
+# Granite 4 Speech baseline
 
-These are **pilot** results, not the final full-baseline results. Granite 4
-Speech was evaluated without entity or keyword context on 250 held-out
-EuroSpeech `test` recordings per language.
+The pilot evaluated 250 EuroSpeech test recordings per language with a standard
+transcription request and no keywords. The 500 recordings (2.09 h) are part of
+the 2,000-row Step 2 Parquet. The remaining 1,500 were not evaluated.
 
-| Language | Scored / failed | Audio (h) | Corpus WER / CER | Mean WER / CER | Median WER / CER | Real-time factor |
-|---|---:|---:|---:|---:|---:|---:|
-| English (`uk`) | 250 / 0 | 1.045 | 26.87% / 18.13% | 30.48% / 22.25% | 24.23% / 15.67% | 0.094 |
-| German (`germany`) | 250 / 0 | 1.048 | 17.13% / 12.30% | 20.95% / 16.10% | 14.61% / 9.13% | 0.123 |
+| Language | Corpus WER / CER | Mean WER / CER | Median WER / CER | WER = 0 |
+|---|---:|---:|---:|---:|
+| English | 26.87% / 18.13% | 30.48% / 22.25% | 24.23% / 15.67% | 2 / 250 |
+| German | 17.13% / 12.30% | 20.95% / 16.10% | 14.61% / 9.13% | 17 / 250 |
 
-English resumed one previously saved prediction and generated the remaining
-249; all 250 recordings were scored. German generated and scored all 250
-recordings. On these separately selected pilot samples, German has lower WER
-and CER than English; this is descriptive rather than a controlled
-cross-language comparison.
+German had lower error rates on these samples. Corpus rates divide total edits
+by total reference words or characters. The mean gives each recording equal
+weight, so short references with many errors can raise it. Two recordings per
+language exceeded 100% WER. Maximum WER/CER were 557.14%/710.00% in English and
+600.00%/736.36% in German. Both minima were zero. All 500 recordings were scored.
+One German prediction hit the 200-token limit. A different German prediction
+was flagged as short relative to its reference.
 
-## Step 2 parquet verification
+Scoring uses the [ASR lab](https://github.com/jwirth-iisys/mmai_06) evaluation
+pattern. Both texts are lowercased and normalized before scoring. Dashes and
+slashes become spaces, punctuation is removed and numbers keep their original
+form. EuroSpeech references are aligned parliamentary transcripts, so some
+differences may come from alignment or transcription. The scores describe
+transcription agreement on this sample.
 
-| Check | Result |
-|---|---|
-| Artifact | `data/deliverable/step2_eurospeech_en_de.parquet` |
-| Rows / language balance | 2,000 total: 1,000 EN and 1,000 DE |
-| Source splits | `test` for both languages |
-| Observed parquet columns | `sample_id`, `audio_ref`, `text`, `duration_seconds`, `speaker_id`, `source_split`, `language` |
-| Reload check | passed: 2,000 rows with 1,000 EN and 1,000 DE |
-| Audio duration | 8.359 h total; 10.02–20.00 s observed; median 15.05 s |
-| Populated duration bins | 10–15 s: 987; 15–20 s: 1,013 |
+The Step 2 archive contains audio references and transcripts, 1,000 per language
+(8.36 h). Its `speaker_id` column is empty. The current exporter writes six
+columns without that field. Each `audio_ref` identifies the source revision,
+country configuration, split and recording key.
 
-The entity-like text proxy was 50.5% overall (37.8% EN, 63.3% DE). It is not
-an NER annotation or a ground-truth entity rate; German capitalization makes
-it especially unsuitable for comparison.
-
-This verified export is reference-only: it stores `audio_ref`, not embedded WAV
-bytes. The observed `speaker_id` column is metadata, not audio. It should be
-absent after regenerating with the latest requested six-column schema.
+[Per-recording results and run metadata](../results/metrics/)

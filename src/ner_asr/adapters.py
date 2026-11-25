@@ -1,19 +1,4 @@
-"""Dataset-specific loaders. Each adapter yields `AudioRecord`s in the common format.
-
-Status (keep this table in sync with docs/dataset_comparison.md):
-
-| adapter             | source                                   | tested?                                  |
-|---------------------|------------------------------------------|------------------------------------------|
-| kaldi_dir           | lecturer's cluster dirs (wav.scp + text) | fixture tests only (no cluster access)   |
-| hf_eurospeech       | disco-eth/EuroSpeech on Hugging Face     | NOT run (needs `datasets`, blocked here) |
-| hf_voxpopuli        | facebook/voxpopuli on Hugging Face       | NOT run (needs `datasets`, blocked here) |
-| hf_mls_en           | parler-tts/mls_eng (mirror of OpenSLR 94)| NOT run (needs `datasets`, blocked here) |
-| common_voice_local  | extracted Mozilla Data Collective archive| NOT run (no data downloaded)             |
-| fixture             | synthetic tones for technical tests      | yes (tests/)                             |
-
-Streaming adapters decode audio in memory and the selection step caches only the
-*selected* recordings as 16 kHz WAV files under data/audio_cache (git-ignored).
-"""
+"""Load datasets as AudioRecord objects."""
 
 from __future__ import annotations
 

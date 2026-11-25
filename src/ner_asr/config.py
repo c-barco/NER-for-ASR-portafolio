@@ -74,7 +74,7 @@ class RunConfig:
     output_dir: str = "results"
     audio_cache_dir: str = "data/audio_cache"
     manifest_dir: str = "data/manifests"
-    context_mode: str = "none"  # baseline is always "none"; see ner_asr.context
+    context_mode: str = "none"
 
     @property
     def output_path(self) -> Path:

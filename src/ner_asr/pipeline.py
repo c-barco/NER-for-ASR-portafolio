@@ -1,11 +1,4 @@
-"""High-level steps used by both the notebook and the command line.
-
-    python -m ner_asr.pipeline select    --config config/baseline_pilot.yaml
-    python -m ner_asr.pipeline transcribe --config config/baseline_pilot.yaml
-    python -m ner_asr.pipeline evaluate  --config config/baseline_pilot.yaml
-    python -m ner_asr.pipeline export-deliverable --config config/eurospeech_en.yaml --config-de config/eurospeech_de.yaml
-    python -m ner_asr.pipeline all       --config config/baseline_pilot.yaml [--mode full]
-"""
+"""Dataset selection, transcription, scoring and Parquet export."""
 
 from __future__ import annotations
 
@@ -23,7 +16,6 @@ from .evaluate import build_results, export, summarize
 from .runner import environment_info, run_transcription
 from .selection import InsufficientAudioError, cache_audio, read_manifest, select_by_duration, write_manifest
 
-# select a subset of the dataset for pilot or full evaluation, and write a manifest
 def step_select(cfg: RunConfig, *, overwrite: bool = False):
     path = cfg.manifest_path
     if path.exists() and not overwrite:

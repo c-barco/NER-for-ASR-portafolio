@@ -1,10 +1,4 @@
-"""Step 2 EuroSpeech parquet export.
-
-The exam artifact is intentionally prepared outside the baseline notebook: this
-module streams one official EuroSpeech split, validates selected source audio,
-and writes lightweight audio references plus transcripts to one parquet file.
-It performs no model inference and no NER.
-"""
+"""Export EuroSpeech audio references and transcripts to Parquet."""
 
 from __future__ import annotations
 

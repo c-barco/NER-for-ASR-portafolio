@@ -11,8 +11,7 @@ Based on the lecturer's `normalize()` in mmai_06/03_evaluation_granite.ipynb
    rather than "antipoverty".
 
 Apostrophes are deleted, as in the lecturer's version ("I'm" -> "im").
-Numbers are NOT verbalised ("120" vs "one hundred and twenty" still counts as an
-error). This is a known limitation and must be mentioned in the report.
+Numbers are not verbalised. "120" and "one hundred and twenty" score differently.
 
 Raw texts are always stored unchanged; normalisation happens only at scoring time.
 """
