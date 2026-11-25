@@ -1,0 +1,26 @@
+# FIXTURE configuration: synthetic tones + fake transcripts for technical tests only.
+# Never report numbers from this config as portfolio results.
+run_name: fixture_pilot
+mode: pilot
+context_mode: none
+dataset:
+  adapter: fixture
+  name: fixture
+  language: en
+  split: test
+  path: tests/fixtures/kaldi_test   # created by tests/make_fixture.py
+selection:
+  pilot_target_hours: 0.01
+  pilot_max_items: 5
+  seed: 42
+  min_duration_s: 0.5
+  max_duration_s: 30
+model:
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
+  language: en
+  max_new_tokens: 200
+  batch_size: 1
+output_dir: results/fixture
+manifest_dir: results/fixture/manifests
+audio_cache_dir: data/audio_cache

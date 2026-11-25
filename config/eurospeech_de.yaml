@@ -1,0 +1,42 @@
+# dataset: EuroSpeech German.
+# The official test split is held out from EuroSpeech train/validation and is
+# used alone for baseline evaluation and the one-file exam deliverable.
+run_name: eurospeech_de_test_baseline
+mode: pilot                 # pilot | full  (CLI --mode full overrides)
+context_mode: none          # Step 2 baseline: never change
+dataset:
+  adapter: hf_eurospeech
+  name: eurospeech_de
+  language: de
+  split: test
+  revision: 7a55bbcee3933f5d9817bb2d4c37399d596f543d
+  options:
+    config_name: germany
+    text_field: human_transcript
+selection:
+  # for scheduling a full baseline evaluation.
+  target_hours: null
+  # Use the item quota below, rather than a duration cap, for the Granite pilot.
+  pilot_target_hours: null
+  # Granite pilot: 250 German recordings. The bilingual pilot is therefore
+  # 250 EN + 250 DE when each language config is run once.
+  pilot_max_items: 250
+  seed: 42
+  min_duration_s: 2
+  max_duration_s: 20
+  max_scan_items: 1200      # enough candidates to obtain the fixed 250-item pilot after filtering
+  allow_insufficient: false
+model:
+  name: ibm-granite/granite-4.0-1b-speech
+  revision: bd87ab862416353633ea431fe49b1614003623c5
+  dtype: auto               # bf16 on CUDA, fp32 on CPU
+  device: auto
+  language: de              # run metadata; Granite's documented prompt auto-handles language
+  max_new_tokens: 200       # official Granite 4 Speech example
+  batch_size: 1
+deliverable:
+  # One bilingual Step 2 parquet is built from these fixed per-language quotas.
+  candidate_limit_per_language: 1200
+  rows_per_language: 1000
+  total_rows: 2000
+output_dir: results

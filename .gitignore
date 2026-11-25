@@ -218,3 +218,38 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- NER-for-ASR project additions ----
+# Audio, dataset archives and caches
+data/audio_cache/
+data/raw/
+*.wav
+*.flac
+*.mp3
+*.opus
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.parquet
+.cache/
+hf_cache/
+# Model weights
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.gguf
+models/
+checkpoints/
+# Secrets
+.env
+.env.*
+*.token
+# Generated outputs: large per-recording files stay local; small summaries may be committed
+results/predictions/*.jsonl
+results/fixture/
+tests/fixtures/
+# Notebook checkpoints
+.ipynb_checkpoints/
