@@ -18,12 +18,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass
 class DatasetConfig:
-    adapter: str  # kaldi_dir | hf_eurospeech | hf_voxpopuli | hf_mls_en | common_voice_local | fixture
+    adapter: str
     name: str
     language: str = "en"
     split: str = "test"
     revision: str | None = None
-    path: str | None = None  # local directory for kaldi_dir / common_voice_local
+    path: str | None = None
     options: dict[str, Any] = field(default_factory=dict)
 
 

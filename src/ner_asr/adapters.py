@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -11,7 +10,6 @@ from .config import DatasetConfig, SelectionConfig, resolve
 from .records import AudioRecord
 
 
-# --------------------------------------------------------------------------- kaldi
 def _read_kaldi_map(path: Path) -> dict[str, str]:
     """Read `<id><TAB or space><value>` lines (lecturer files use a TAB)."""
     out: dict[str, str] = {}
@@ -65,10 +63,7 @@ def iter_kaldi_dir(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRe
         )
 
 
-# ---------------------------------------------------------------- hugging face
 def _hf_stream(repo: str, config_name: str | None, cfg: DatasetConfig):
-    # Imported lazily: `datasets` needs pyarrow.compute, which Smart App Control
-    # blocks on the project laptop. Everything else works without it.
     from datasets import Audio, load_dataset
 
     ds = load_dataset(
@@ -135,88 +130,6 @@ def iter_hf_eurospeech(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[Aud
         )
 
 
-def iter_hf_voxpopuli(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRecord]:
-    """facebook/voxpopuli, config 'en'. Fields: audio_id, raw_text, normalized_text,
-    speaker_id, gender, is_gold_transcript, accent.
-
-    option text_field: 'raw_text' (default; cased + punctuated, better for later NER)
-    or 'normalized_text' (lowercase, closer to the lecturer's cluster labels).
-    """
-    text_field = cfg.options.get("text_field", "raw_text")
-    ds = _hf_stream("facebook/voxpopuli", cfg.options.get("config_name", "en"), cfg)
-    for row in ds:
-        audio, dur = decode_bytes(row["audio"]["bytes"])
-        yield AudioRecord(
-            sample_id=row["audio_id"],
-            audio_ref=f"hf://facebook/voxpopuli@{cfg.revision}:{cfg.split}:{row['audio_id']}",
-            reference_text=row[text_field],
-            duration_seconds=dur,
-            speaker_id=row.get("speaker_id"),
-            source_split=cfg.split,
-            dataset=cfg.name,
-            dataset_revision=cfg.revision,
-            provenance=f"hf:facebook/voxpopuli/en/{cfg.split};text_field={text_field}",
-            audio_array=audio,
-            sampling_rate=16_000,
-        )
-
-
-def iter_hf_mls_en(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRecord]:
-    """English MLS. facebook/multilingual_librispeech has NO English config, so we use
-    parler-tts/mls_eng, a Hugging Face re-upload of OpenSLR 94 English (community
-    mirror, not the original publisher). Fields: audio, original_path, begin_time,
-    end_time, transcript (lowercase, no punctuation), audio_duration, speaker_id, book_id.
-    """
-    ds = _hf_stream("parler-tts/mls_eng", None, cfg)
-    for row in ds:
-        audio, dur = decode_bytes(row["audio"]["bytes"])
-        sid = f"{row['speaker_id']}_{row['book_id']}_{row['begin_time']:.2f}"
-        yield AudioRecord(
-            sample_id=sid,
-            audio_ref=f"hf://parler-tts/mls_eng@{cfg.revision}:{cfg.split}:{sid}",
-            reference_text=row["transcript"],
-            duration_seconds=dur,
-            speaker_id=str(row.get("speaker_id")),
-            source_split=cfg.split,
-            dataset=cfg.name,
-            dataset_revision=cfg.revision,
-            provenance=f"hf:parler-tts/mls_eng/{cfg.split};book={row.get('book_id')}",
-            audio_array=audio,
-            sampling_rate=16_000,
-        )
-
-
-# ------------------------------------------------------------- common voice
-def iter_common_voice_local(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRecord]:
-    """Extracted Common Voice release downloaded manually from Mozilla Data Collective
-    (account + terms acceptance required; full English scripted set ~88 GB - do NOT
-    download it just for this). Expects <path>/<split>.tsv and <path>/clips/.
-    Uses clip_durations.tsv (milliseconds) when present. UNTESTED.
-    """
-    root = resolve(cfg.path)
-    durations: dict[str, float] = {}
-    dur_file = root / "clip_durations.tsv"
-    if dur_file.exists():
-        with open(dur_file, encoding="utf-8") as f:
-            for row in csv.DictReader(f, delimiter="\t"):
-                durations[row["clip"]] = float(row["duration[ms]"]) / 1000.0
-    with open(root / f"{cfg.split}.tsv", encoding="utf-8") as f:
-        for row in csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE):
-            clip = root / "clips" / row["path"]
-            yield AudioRecord(
-                sample_id=Path(row["path"]).stem,
-                audio_ref=str(clip),
-                reference_text=row["sentence"],
-                duration_seconds=durations.get(row["path"]),  # None -> measured at selection
-                speaker_id=row.get("client_id"),
-                source_split=cfg.split,
-                dataset=cfg.name,
-                dataset_revision=cfg.revision,
-                provenance=f"common_voice_local:{cfg.path}",
-            )
-
-
-# ------------------------------------------------------------------ fixture
 def iter_fixture(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioRecord]:
     """Synthetic FIXTURE data (tones, fake transcripts) for technical tests only."""
     yield from iter_kaldi_dir(cfg, sel)
@@ -225,9 +138,6 @@ def iter_fixture(cfg: DatasetConfig, sel: SelectionConfig) -> Iterator[AudioReco
 ADAPTERS = {
     "kaldi_dir": iter_kaldi_dir,
     "hf_eurospeech": iter_hf_eurospeech,
-    "hf_voxpopuli": iter_hf_voxpopuli,
-    "hf_mls_en": iter_hf_mls_en,
-    "common_voice_local": iter_common_voice_local,
     "fixture": iter_fixture,
 }
 

@@ -13,7 +13,7 @@ from ner_asr.records import AudioRecord
 
 @pytest.mark.parametrize(
     "name",
-    ["eurospeech_en", "eurospeech_de", "mls_en", "common_voice_en", "cluster_kaldi", "pilot_fixture"],
+    ["eurospeech_en", "eurospeech_de", "pilot_fixture"],
 )
 def test_all_configs_load_in_pilot_mode(name):
     cfg = load_config(f"config/{name}.yaml")

@@ -226,7 +226,8 @@ def reload_and_validate_parquet(
 
     artifact = Path(path)
     dataset = load_dataset("parquet", data_files={"train": str(artifact)}, split="train")
-    if dataset.column_names != DELIVERABLE_COLUMNS:
+    columns = [name for name in dataset.column_names if name != "speaker_id"]
+    if columns != DELIVERABLE_COLUMNS:
         raise DeliverableValidationError(
             f"Unexpected parquet columns: {dataset.column_names}; expected {DELIVERABLE_COLUMNS}"
         )

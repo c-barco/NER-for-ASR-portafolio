@@ -1,11 +1,4 @@
-"""Baseline evaluation: per-recording table, summary metrics and basic sanity checks.
-
-Output columns include the lab_06 names for the no-context condition
-(`wav_path`, `label`, `pred_without_context`, `wer_without_context`,
-`cer_without_context`). No context-conditioned run is part of this project
-scope.
-Raw reference and prediction texts are kept unchanged next to their normalised forms.
-"""
+"""Baseline WER and CER exports."""
 
 from __future__ import annotations
 

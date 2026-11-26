@@ -147,6 +147,11 @@ def test_bilingual_parquet_roundtrip_is_balanced_when_datasets_is_available(tmp_
     assert len(set(reloaded["sample_id"])) == 6
     assert all(reference.startswith("memory-") for reference in reloaded["audio_ref"])
 
+    legacy = tmp_path / "original_schema.parquet"
+    reloaded.add_column("speaker_id", [None] * len(reloaded)).to_parquet(str(legacy))
+    old_format = reload_and_validate_parquet(legacy, minimum_rows=6)
+    assert list(old_format["sample_id"]) == list(reloaded["sample_id"])
+
 
 def test_overwrite_removes_a_stale_temporary_parquet_when_datasets_is_available(tmp_path):
     try:

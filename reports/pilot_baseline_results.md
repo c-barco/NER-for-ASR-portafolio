@@ -1,8 +1,18 @@
-# Granite 4 Speech baseline
+# Dataset and baseline
 
-The pilot evaluated 250 EuroSpeech test recordings per language with a standard
-transcription request and no keywords. The 500 recordings (2.09 h) are part of
-the 2,000-row Step 2 Parquet. The remaining 1,500 were not evaluated.
+## Dataset selection
+
+Multilingual LibriSpeech contains read audiobooks. VoxPopuli contains European
+Parliament speech. Both appear in IBM's published Granite 4 ASR training data.
+We chose EuroSpeech for parliamentary speech and its UK and German test splits.
+IBM's training table omits EuroSpeech by name. Recording-level overlap is unknown.
+[MLS](https://www.openslr.org/94/) · [VoxPopuli](https://github.com/facebookresearch/voxpopuli) · [EuroSpeech](https://huggingface.co/datasets/disco-eth/EuroSpeech) · [Granite 4](https://huggingface.co/ibm-granite/granite-4.0-1b-speech)
+
+## Baseline results
+
+The pilot evaluated 250 English and 250 German EuroSpeech test recordings
+(2.09 h) with Granite 4.0 1B Speech and no keywords. The Step 2 Parquet contains
+2,000 audio references and transcripts (8.36 h), including all 500 scored clips.
 
 | Language | Corpus WER / CER | Mean WER / CER | Median WER / CER | WER = 0 |
 |---|---:|---:|---:|---:|
@@ -20,13 +30,10 @@ was flagged as short relative to its reference.
 Scoring uses the [ASR lab](https://github.com/jwirth-iisys/mmai_06) evaluation
 pattern. Both texts are lowercased and normalized before scoring. Dashes and
 slashes become spaces, punctuation is removed and numbers keep their original
-form. EuroSpeech references are aligned parliamentary transcripts, so some
-differences may come from alignment or transcription. The scores describe
-transcription agreement on this sample.
+form. EuroSpeech references can differ from the audio because they come from
+aligned parliamentary transcripts. The English clips span four sessions and
+the German clips come from one session.
 
-The Step 2 archive contains audio references and transcripts, 1,000 per language
-(8.36 h). Its `speaker_id` column is empty. The current exporter writes six
-columns without that field. Each `audio_ref` identifies the source revision,
-country configuration, split and recording key.
+The 250 English baseline recordings are the input for the name-error analysis.
 
 [Per-recording results and run metadata](../results/metrics/)
